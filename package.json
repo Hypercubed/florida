@@ -1,0 +1,51 @@
+{
+  "name": "florida",
+  "version": "0.0.0",
+  "description": "florida keys",
+  "main": "lib/FK.js",
+  "files": [
+    "lib",
+    "src",
+    "dist"
+  ],
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "babel": "^5.8.34",
+    "browserify": "^12.0.1",
+    "semistandard": "^7.0.4",
+    "tap-spec": "^4.1.1",
+    "tape": "^4.2.2",
+    "uglifyjs": "^2.4.10"
+  },
+  "scripts": {
+    "test": "babel-node test/FK-spec.js | tap-spec",
+    "babel": "babel src -d lib",
+    "browserify": "browserify lib/FK.js -s FK -o dist/FK.js",
+    "uglify": "uglifyjs dist/FK.js -o dist/FK.min.js",
+    "build": "npm run babel && npm run browserify && npm run uglify",
+    "lint": "semistandard src/*.js test/*.js",
+    "check": "npm run lint && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/Hypercubed/_F.git"
+  },
+  "keywords": [],
+  "author": "J. Harshbarger",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Hypercubed/florida/issues"
+  },
+  "homepage": "https://github.com/Hypercubed/florida",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    ".grunt",
+    "docs",
+    "test"
+  ]
+}

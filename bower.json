@@ -1,0 +1,21 @@
+{
+  "name": "florida",
+  "description": "a florida thing",
+  "authors": [
+    "J. Harshbarger"
+  ],
+  "main": "FK.js",
+  "keywords": [],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests",
+    "docs"
+  ],
+  "dependencies": {},
+  "devDependencies": {},
+  "homepage": "https://github.com/Hypercubed/florida"
+}
