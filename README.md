@@ -2,7 +2,7 @@
 
 Functional accessors in js.
 
-** Warning: Some parts of the documentation are based on a previous version.  Update is in progress **
+** Warning: This library is not ready.  Some parts of the documentation are based on a previous [incarnation](https://github.com/Hypercubed/_F).  Work in progress **
 
 ## Install
 
