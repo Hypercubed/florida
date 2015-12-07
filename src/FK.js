@@ -1,17 +1,22 @@
 import R from 'ramda';
 
-const $index = '$index';
-const $this = '$this';
+const $$index = '$index';
+const $$this = '$this';
 
-FK.$identity = R.identity;
-FK.$this = function () { return this; };
-FK.$index = (d, i) => i;
+const keys = FK;
+const and = R.both;
+const or = R.either;
+const not = R.compliment;
+
+const $identity = R.identity;
+const $this = function () { return this; };
+const $index = (d, i) => i;
 
 function prop (key) {
-  if (R.isNil(key)) return R.identity;
+  if (R.isNil(key)) return $identity;
   if (typeof key === 'function') return function () { return key.apply(this, arguments); };
-  if (key === $index) return FK.$index;
-  if (key === $this) return FK.$this;
+  if (key === $$index) return $index;
+  if (key === $$this) return $this;
   if (typeof key === 'number') {
     return (d) => R.isNil(d) ? undefined : d[key];
   }
@@ -28,11 +33,12 @@ function FK (key) {
   var _getter = prop(key);
   var _fn = {};
 
-  _fn.get = _getter;
+  _fn.get = () => _getter;
 
-  // _fn.pipe = _ => R.pipe(_getter, _);
+  _fn.satisfies = _ => R.pipe(_getter, _);
 
   _fn.eq = _ => R.pipe(_getter, R.equals(_));
+  // _fn.eq = _ => _fn.satisfies(R.equals(_));
   // _fn.eq = R.curry((v, o) => R.equals(v, _getter(o)));
 
   _fn.is = _ => R.pipe(_getter, R.identical(_));
@@ -51,8 +57,8 @@ function FK (key) {
 
   _fn.order = _ => R.comparator(R.useWith(_, [_getter, _getter]));
 
-  _fn.asc = _fn.order(R.lt);
-  _fn.desc = _fn.order(R.gt);
+  _fn.asc = () => _fn.order(R.lt);
+  _fn.desc = () => _fn.order(R.gt);
 
   _fn.both = (a, b) => {
     return R.both(R.pipe(_getter, a), R.pipe(_getter, b));
@@ -67,8 +73,12 @@ function FK (key) {
   return _fn;
 }
 
-FK.and = R.both;
-FK.not = R.compliment;
-FK.or = R.either;
-
-export default FK;
+export {
+  keys,
+  and,
+  or,
+  not,
+  $index,
+  $this,
+  $identity
+};

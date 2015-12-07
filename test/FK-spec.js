@@ -1,5 +1,6 @@
 import test from 'tape';
-import FK from '../src/FK';
+import * as F from '../src/FK';
+const FK = F.keys;
 
 const rows = [
   [1977, 0],      // 0
@@ -76,14 +77,14 @@ test('_F', (t) => {
       var _firstname = FK('firstname');
       var _age = FK('age');
       var _johns = _firstname.eq('John');
-      var _twenties = FK.and(_age.gte(20), _age.lt(30)); // _age.gte(20).and().lt(30);
+      var _twenties = F.and(_age.gte(20), _age.lt(30)); // _age.gte(20).and().lt(30);
 
-      t.deepEqual(people.map(_firstname.get), ['John', 'John', 'Janet', 'John', 'John', 'Maurice']);  // Returns a list of first names
+      t.deepEqual(people.map(_firstname.get()), ['John', 'John', 'Janet', 'John', 'John', 'Maurice']);  // Returns a list of first names
       t.equal(people.filter(_johns).length, 4);  // returns a list of John's
       t.equal(people.filter(_twenties).length, 4);  // returns a list of johns in their twenties
-      t.equal(people.filter(FK.and(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
+      t.equal(people.filter(F.and(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
 
-      var f = people.filter(FK.and(_johns, _twenties)).sort(_age.asc); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
+      var f = people.filter(F.and(_johns, _twenties)).sort(_age.asc()); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
       t.equal(f.length, 2);
       t.equal(f[0].age, 22);
       t.equal(f[1].age, 29);
@@ -100,57 +101,75 @@ test('_F', (t) => {
     });
 
     t.test('should return identity function', (t) => {
-      var f = FK();
-      t.equal(f.get(5), 5);
+      var f = FK().get();
+      t.equal(f(5), 5);
       t.end();
     });
 
     t.test('should return identity function when passsed null', (t) => {
-      var f = FK(null);
-      t.equal(f.get(5), 5);
+      var f = FK(null).get();
+      t.equal(f(5), 5);
       t.end();
     });
 
     t.test('should return an accessor function', (t) => {
-      var f = FK('year');
-      t.equal(f.get(data[0]), 1977);
+      var f = FK('year').get();
+      t.equal(f(data[0]), 1977);
       t.end();
     });
 
     t.test('should return an accessor function', (t) => {
-      var f = FK(d => d.year);
-      t.equal(f.get(data[0]), 1977);
+      var f = FK(d => d.year).get();
+      t.equal(f(data[0]), 1977);
       t.end();
     });
 
     t.test('should return an index accessor function', (t) => {
-      var F = FK('$index');
+      var f = FK('$index').get();
 
-      t.equal(data.map(F.get).length, data.length);
-      t.equal(data.map(F.get)[0], 0);
-      t.equal(data.map(F.get)[5], 5);
+      t.equal(data.map(f).length, data.length);
+      t.equal(data.map(f)[0], 0);
+      t.equal(data.map(f)[5], 5);
+      t.end();
+    });
+
+    t.test('should return an index accessor function', (t) => {
+      var f = F.$index;
+
+      t.equal(data.map(f).length, data.length);
+      t.equal(data.map(f)[0], 0);
+      t.equal(data.map(f)[5], 5);
       t.end();
     });
 
     t.test('should have access to this', (t) => {
-      var F = FK(function (d) {
+      var f = FK(function (d) {
         return this.name;
-      });
+      }).get();
 
       var _this = { name: 'thisName' };
-      t.equal(data.map(F.get, _this).length, data.length);
+      t.equal(data.map(f, _this).length, data.length);
 
-      t.equal(data.map(F.get, _this)[0], 'thisName');
-      t.equal(data.map(F.get, _this)[5], 'thisName');
+      t.equal(data.map(f, _this)[0], 'thisName');
+      t.equal(data.map(f, _this)[5], 'thisName');
       t.end();
     });
 
     t.test('should return a this accessor function', (t) => {
-      var F = FK('$this');
+      var f = FK('$this').get();
 
       var _this = { name: 'thisName' };
-      t.equal(data.map(F.get, _this)[0], _this);
-      t.equal(data.map(F.get, _this)[5], _this);
+      t.equal(data.map(f, _this)[0], _this);
+      t.equal(data.map(f, _this)[5], _this);
+      t.end();
+    });
+
+    t.test('should return a this accessor function', (t) => {
+      var f = F.$this;
+
+      var _this = { name: 'thisName' };
+      t.equal(data.map(f, _this)[0], _this);
+      t.equal(data.map(f, _this)[5], _this);
       t.end();
     });
 
@@ -163,53 +182,53 @@ test('_F', (t) => {
 
     t.test('should work with nested data, with chained keys', (t) => {
       var data = { date: { year: 1990 } };
-      t.equal(FK('date.year').get(data), data.date.year);
+      t.equal(FK('date.year').get()(data), data.date.year);
       t.end();
     });
 
     t.test('should work with nested data, with chained keys in array', (t) => {
       var data = { date: { year: 1990 } };
-      t.equal(FK(['date', 'year']).get(data), 1990);
+      t.equal(FK(['date', 'year']).get()(data), 1990);
       t.end();
     });
 
     t.test('should work with nested data, with chained keys in array', (t) => {
       var data = { date: { year: 1990 } };
-      t.equal(FK(['date', d => d.year]).get(data), 1990);
+      t.equal(FK(['date', d => d.year]).get()(data), 1990);
       t.end();
     });
 
     t.test('should work with deep nested data', (t) => {
       var data = { event: { date: { year: 1990 } } };
-      t.equal(FK('event.date.year').get(data), 1990);
+      t.equal(FK('event.date.year').get()(data), 1990);
       t.end();
     });
 
     t.test('should work with very deep nested data', (t) => {
       var data = { events: [ { event: { date: { year: 1990 } } } ] };
-      t.equal(FK(['events', 0, 'event.date.year']).get(data), 1990);
+      t.equal(FK(['events', 0, 'event.date.year']).get()(data), 1990);
       t.end();
     });
 
     t.test('should return undefined with missing key', (t) => {
       var data = { date: { year: 1990 } };
-      t.equal(FK('year').get(data), undefined);
-      t.equal(FK('date.day').get(data), undefined);
-      t.equal(FK('year.day').get(data), undefined);
-      t.equal(FK('date.year.value').get(data), undefined);
+      t.equal(FK('year').get()(data), undefined);
+      t.equal(FK('date.day').get()(data), undefined);
+      t.equal(FK('year.day').get()(data), undefined);
+      t.equal(FK('date.year.value').get()(data), undefined);
       t.end();
     });
 
     t.test('should return undefined with missing key very deep nested data', (t) => {
       var data = { events: [ { event: { date: { year: 1990 } } } ] };
-      t.equal(FK(['events', 1, 'event.date.year']).get(data), undefined);
+      t.equal(FK(['events', 1, 'event.date.year']).get()(data), undefined);
       t.end();
     });
 
     t.test('should work with numeric keys', (t) => {
       var _secondElement = FK(1);
-      t.equal(_secondElement.get([1978, 0]), 0);
-      t.deepEqual(_secondElement.get(rows), [1978, 0]);
+      t.equal(_secondElement.get()([1978, 0]), 0);
+      t.deepEqual(_secondElement.get()(rows), [1978, 0]);
       t.equal(_secondElement.eq(rows[0])(rows), false);
       t.equal(_secondElement.eq(rows[1])(rows), true);
       t.end();
@@ -217,8 +236,8 @@ test('_F', (t) => {
 
     t.test('should work with numeric keys, including zero', (t) => {
       var _firstElement = FK(0);
-      t.equal(_firstElement.get([1977, 0]), 1977);
-      t.deepEqual(_firstElement.get(rows), [1977, 0]);
+      t.equal(_firstElement.get()([1977, 0]), 1977);
+      t.deepEqual(_firstElement.get()(rows), [1977, 0]);
       t.equal(_firstElement.eq(1977)([1977, 0]), true);
       t.equal(_firstElement.eq(0)([1977, 0]), false);
       t.end();
@@ -226,17 +245,29 @@ test('_F', (t) => {
 
     t.test('should work with numeric keys, returns undefined if out of bounds', (t) => {
       var _missingElement = FK(rows.length);
-      t.equal(_missingElement.get(rows), undefined);
+      t.equal(_missingElement.get()(rows), undefined);
+      t.end();
+    });
+  });
+
+  t.test('#satisfies', (t) => {
+    t.test('should work', (t) => {
+      var a = [[1, 2]];
+      var b = [[3, 4]];
+
+      var f = FK([0, 1]).satisfies(_ => _ % 2 === 0);
+      t.equal(f(a), true);
+      t.equal(f(b), true);
       t.end();
     });
   });
 
   t.test('#is', (t) => {
     t.test('should work', (t) => {
-      var a = [1, 2];
-      var b = [1, 2];
+      var a = [[1, 2]];
+      var b = [[1, 2]];
 
-      var f = FK().is(a);
+      var f = FK(0).is(a[0]);
       t.equal(f(a), true);
       t.equal(f(b), false);
       t.end();
@@ -402,7 +433,7 @@ test('_F', (t) => {
       var F2 = function (d) {
         return d.year < newDate(1990);
       };
-      var f = FK.and(F1, F2);
+      var f = F.and(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -419,7 +450,7 @@ test('_F', (t) => {
 
       var F1 = FK('value').gt(0);
       var F2 = FK('year').lt(newDate(1990));
-      var f = FK.and(F1, F2);
+      var f = F.and(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -475,7 +506,7 @@ test('_F', (t) => {
       var F2 = function (d) {
         return d.year > newDate(1979);
       };
-      var f = FK.and(FK('year').lt(newDate(1990)), F2);
+      var f = F.and(FK('year').lt(newDate(1990)), F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -610,7 +641,7 @@ test('_F', (t) => {
       var F2 = function (d) {
         return d.year >= newDate(2000);
       };
-      var f = FK.or(F1, F2);
+      var f = F.or(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -627,7 +658,7 @@ test('_F', (t) => {
 
       var F1 = FK('value').gt(15);
       var F2 = FK('year').gt(newDate(1999));
-      var f = FK.or(F1, F2);
+      var f = F.or(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -660,5 +691,29 @@ test('_F', (t) => {
       t.equal(mean, 3.845789473684211);
       t.end();
     }); */
+  });
+
+  t.test('#asc', (t) => {
+    t.test('should sort ascending', (t) => {
+      var valueKey = FK('value');
+      var value = valueKey.get();
+
+      var d = data.slice().sort(valueKey.asc());
+      t.equal(value(d.shift()), 0);
+      t.equal(value(d.pop()), 43.7);
+      t.end();
+    });
+  });
+
+  t.test('#desc', (t) => {
+    t.test('should sort ascending', (t) => {
+      var valueKey = FK('value');
+      var value = valueKey.get();
+
+      var d = data.slice().sort(valueKey.desc());
+      t.equal(value(d.pop()), 0);
+      t.equal(value(d.shift()), 43.7);
+      t.end();
+    });
   });
 });
