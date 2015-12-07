@@ -1,62 +1,65 @@
-
 import R from 'ramda';
 
-const compose = R.compose;
-// const _ = R.__;
-const isNil = R.isNil;
+const $index = '$index';
+const $this = '$this';
+
+FK.$identity = R.identity;
+FK.$this = function () { return this; };
+FK.$index = (d, i) => i;
 
 function prop (key) {
-  if (isNil(key)) return R.identity;
+  if (R.isNil(key)) return R.identity;
   if (typeof key === 'function') return function () { return key.apply(this, arguments); };
-  if (key === '$index') return (d, i) => i;
-  if (key === '$this') return function () { return this; };
+  if (key === $index) return FK.$index;
+  if (key === $this) return FK.$this;
   if (typeof key === 'number') {
-    return (d) => isNil(d) ? undefined : d[key];
+    return (d) => R.isNil(d) ? undefined : d[key];
   }
   if (typeof key === 'string' && key.indexOf('.') === -1) {
-    return (d) => isNil(d) ? undefined : d[key];
+    return (d) => R.isNil(d) ? undefined : d[key];
   }
 
   var chain = (Array.isArray(key)) ? key : key.split('.');
-  var f = prop(chain.shift());
-  var g = prop(chain.join('.'));
-  return compose(g, f);
+  chain = chain.map(prop);
+  return R.pipe.apply(null, chain);
 }
 
 function FK (key) {
   var _getter = prop(key);
-  var _fn = _getter;
+  var _fn = {};
 
   _fn.get = _getter;
 
-  _fn.eq = (v) => compose(R.equals(v), _getter);
-  _fn.is = (v) => compose(R.identical(v), _getter);
-  _fn.match = (v) => compose(R.test(v), _getter);  // rename test?
+  // _fn.pipe = _ => R.pipe(_getter, _);
 
-  _fn.gte = (v) => compose(R.flip(R.gte)(v), _getter);
-  _fn.lte = (v) => compose(R.flip(R.lte)(v), _getter);
-  _fn.gt = (v) => compose(R.flip(R.gt)(v), _getter);
-  _fn.lt = (v) => compose(R.flip(R.lt)(v), _getter);
+  _fn.eq = _ => R.pipe(_getter, R.equals(_));
+  // _fn.eq = R.curry((v, o) => R.equals(v, _getter(o)));
 
-  _fn.type = () => compose(R.type, _getter);
-  _fn.typeof = (v) => compose(R.equals(v), _fn.type());
+  _fn.is = _ => R.pipe(_getter, R.identical(_));
+  _fn.match = _ => R.pipe(_getter, R.test(_));  // rename test?
 
-  _fn.nil = () => compose(isNil, _getter);
-  _fn.exists = () => compose(R.not, _fn.nil());
+  _fn.gte = _ => R.pipe(_getter, R.lte(_)); // lte = flip(gte)
+  _fn.lte = _ => R.pipe(_getter, R.gte(_));  // gte = flip(lte)
+  _fn.gt = _ => R.pipe(_getter, R.lt(_));  // lt = flip(gt)
+  _fn.lt = _ => R.pipe(_getter, R.gt(_));  // gt = flip(lt)
 
-  // const _fn_order = function (c) {  // todo compose
-  //  return R.comparator(c);
-  // };
+  _fn.type = () => R.pipe(_getter, R.type);
+  _fn.typeof = _ => R.pipe(_getter, R.type, R.equals(_));
 
-  _fn.asc = R.comparator((a, b) => _getter(a) < _getter(b));
-  _fn.desc = R.comparator((a, b) => _getter(a) > _getter(b));
+  _fn.nil = () => R.pipe(_getter, R.isNil);
+  _fn.exists = () => R.pipe(_getter, R.isNil, R.not);
+
+  _fn.order = _ => R.comparator(R.useWith(_, [_getter, _getter]));
+
+  _fn.asc = _fn.order(R.lt);
+  _fn.desc = _fn.order(R.gt);
 
   _fn.both = (a, b) => {
-    return R.both(compose(a, _getter), compose(b, _getter));
+    return R.both(R.pipe(_getter, a), R.pipe(_getter, b));
   };
 
   _fn.either = (a, b) => {
-    return R.either(compose(a, _getter), compose(b, _getter));
+    return R.either(R.pipe(_getter, a), R.pipe(_getter, b));
   };
 
   _fn.between = (a, b) => R.both(_fn.gt(a), _fn.lt(b));

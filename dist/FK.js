@@ -11,98 +11,100 @@ var _ramda = require('ramda');
 
 var _ramda2 = _interopRequireDefault(_ramda);
 
-var compose = _ramda2['default'].compose;
-// const _ = R.__;
-var isNil = _ramda2['default'].isNil;
+var $index = '$index';
+var $this = '$this';
+
+FK.$identity = _ramda2['default'].identity;
+FK.$this = function () {
+  return this;
+};
+FK.$index = function (d, i) {
+  return i;
+};
 
 function prop(key) {
-  if (isNil(key)) return _ramda2['default'].identity;
+  if (_ramda2['default'].isNil(key)) return _ramda2['default'].identity;
   if (typeof key === 'function') return function () {
     return key.apply(this, arguments);
   };
-  if (key === '$index') return function (d, i) {
-    return i;
-  };
-  if (key === '$this') return function () {
-    return this;
-  };
+  if (key === $index) return FK.$index;
+  if (key === $this) return FK.$this;
   if (typeof key === 'number') {
     return function (d) {
-      return isNil(d) ? undefined : d[key];
+      return _ramda2['default'].isNil(d) ? undefined : d[key];
     };
   }
   if (typeof key === 'string' && key.indexOf('.') === -1) {
     return function (d) {
-      return isNil(d) ? undefined : d[key];
+      return _ramda2['default'].isNil(d) ? undefined : d[key];
     };
   }
 
   var chain = Array.isArray(key) ? key : key.split('.');
-  var f = prop(chain.shift());
-  var g = prop(chain.join('.'));
-  return compose(g, f);
+  chain = chain.map(prop);
+  return _ramda2['default'].pipe.apply(null, chain);
 }
 
 function FK(key) {
   var _getter = prop(key);
-  var _fn = _getter;
+  var _fn = {};
 
   _fn.get = _getter;
 
-  _fn.eq = function (v) {
-    return compose(_ramda2['default'].equals(v), _getter);
+  // _fn.pipe = _ => R.pipe(_getter, _);
+
+  _fn.eq = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].equals(_));
   };
-  _fn.is = function (v) {
-    return compose(_ramda2['default'].identical(v), _getter);
+  // _fn.eq = R.curry((v, o) => R.equals(v, _getter(o)));
+
+  _fn.is = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].identical(_));
   };
-  _fn.match = function (v) {
-    return compose(_ramda2['default'].test(v), _getter);
+  _fn.match = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].test(_));
   }; // rename test?
 
-  _fn.gte = function (v) {
-    return compose(_ramda2['default'].flip(_ramda2['default'].gte)(v), _getter);
-  };
-  _fn.lte = function (v) {
-    return compose(_ramda2['default'].flip(_ramda2['default'].lte)(v), _getter);
-  };
-  _fn.gt = function (v) {
-    return compose(_ramda2['default'].flip(_ramda2['default'].gt)(v), _getter);
-  };
-  _fn.lt = function (v) {
-    return compose(_ramda2['default'].flip(_ramda2['default'].lt)(v), _getter);
-  };
+  _fn.gte = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].lte(_));
+  }; // lte = flip(gte)
+  _fn.lte = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].gte(_));
+  }; // gte = flip(lte)
+  _fn.gt = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].lt(_));
+  }; // lt = flip(gt)
+  _fn.lt = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].gt(_));
+  }; // gt = flip(lt)
 
   _fn.type = function () {
-    return compose(_ramda2['default'].type, _getter);
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].type);
   };
-  _fn['typeof'] = function (v) {
-    return compose(_ramda2['default'].equals(v), _fn.type());
+  _fn['typeof'] = function (_) {
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].type, _ramda2['default'].equals(_));
   };
 
   _fn.nil = function () {
-    return compose(isNil, _getter);
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].isNil);
   };
   _fn.exists = function () {
-    return compose(_ramda2['default'].not, _fn.nil());
+    return _ramda2['default'].pipe(_getter, _ramda2['default'].isNil, _ramda2['default'].not);
   };
 
-  // const _fn_order = function (c) {  // todo compose
-  //  return R.comparator(c);
-  // };
+  _fn.order = function (_) {
+    return _ramda2['default'].comparator(_ramda2['default'].useWith(_, [_getter, _getter]));
+  };
 
-  _fn.asc = _ramda2['default'].comparator(function (a, b) {
-    return _getter(a) < _getter(b);
-  });
-  _fn.desc = _ramda2['default'].comparator(function (a, b) {
-    return _getter(a) > _getter(b);
-  });
+  _fn.asc = _fn.order(_ramda2['default'].lt);
+  _fn.desc = _fn.order(_ramda2['default'].gt);
 
   _fn.both = function (a, b) {
-    return _ramda2['default'].both(compose(a, _getter), compose(b, _getter));
+    return _ramda2['default'].both(_ramda2['default'].pipe(_getter, a), _ramda2['default'].pipe(_getter, b));
   };
 
   _fn.either = function (a, b) {
-    return _ramda2['default'].either(compose(a, _getter), compose(b, _getter));
+    return _ramda2['default'].either(_ramda2['default'].pipe(_getter, a), _ramda2['default'].pipe(_getter, b));
   };
 
   _fn.between = function (a, b) {

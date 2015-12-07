@@ -1,7 +1,4 @@
 import test from 'tape';
-
-// import R from 'ramda';
-
 import FK from '../src/FK';
 
 const rows = [
@@ -95,7 +92,7 @@ test('_F', (t) => {
     });
   });
 
-  t.test('_F()', (t) => {
+  t.test('FK()', (t) => {
     t.test('should be a function', (t) => {
       t.equal(typeof FK, 'function');
       //  t.equal(typeof FK(), 'object');
@@ -116,6 +113,12 @@ test('_F', (t) => {
 
     t.test('should return an accessor function', (t) => {
       var f = FK('year');
+      t.equal(f.get(data[0]), 1977);
+      t.end();
+    });
+
+    t.test('should return an accessor function', (t) => {
+      var f = FK(d => d.year);
       t.equal(f.get(data[0]), 1977);
       t.end();
     });
@@ -159,23 +162,47 @@ test('_F', (t) => {
     }); */
 
     t.test('should work with nested data, with chained keys', (t) => {
-      var data = { 'date': { 'year': 1990 } };
+      var data = { date: { year: 1990 } };
       t.equal(FK('date.year').get(data), data.date.year);
       t.end();
     });
 
     t.test('should work with nested data, with chained keys in array', (t) => {
-      var data = { 'date': { 'year': 1990 } };
-      t.equal(FK(['date', 'year']).get(data), data.date.year);
+      var data = { date: { year: 1990 } };
+      t.equal(FK(['date', 'year']).get(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with nested data, with chained keys in array', (t) => {
+      var data = { date: { year: 1990 } };
+      t.equal(FK(['date', d => d.year]).get(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with deep nested data', (t) => {
+      var data = { event: { date: { year: 1990 } } };
+      t.equal(FK('event.date.year').get(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with very deep nested data', (t) => {
+      var data = { events: [ { event: { date: { year: 1990 } } } ] };
+      t.equal(FK(['events', 0, 'event.date.year']).get(data), 1990);
       t.end();
     });
 
     t.test('should return undefined with missing key', (t) => {
-      var data = { 'date': { 'year': 1990 } };
+      var data = { date: { year: 1990 } };
       t.equal(FK('year').get(data), undefined);
       t.equal(FK('date.day').get(data), undefined);
       t.equal(FK('year.day').get(data), undefined);
       t.equal(FK('date.year.value').get(data), undefined);
+      t.end();
+    });
+
+    t.test('should return undefined with missing key very deep nested data', (t) => {
+      var data = { events: [ { event: { date: { year: 1990 } } } ] };
+      t.equal(FK(['events', 1, 'event.date.year']).get(data), undefined);
       t.end();
     });
 
@@ -194,6 +221,12 @@ test('_F', (t) => {
       t.deepEqual(_firstElement.get(rows), [1977, 0]);
       t.equal(_firstElement.eq(1977)([1977, 0]), true);
       t.equal(_firstElement.eq(0)([1977, 0]), false);
+      t.end();
+    });
+
+    t.test('should work with numeric keys, returns undefined if out of bounds', (t) => {
+      var _missingElement = FK(rows.length);
+      t.equal(_missingElement.get(rows), undefined);
       t.end();
     });
   });
