@@ -48,6 +48,7 @@ const newDate = (d) => {
 
 const d3_number = (x) => x !== null && !isNaN(x);
 
+/* istanbul ignore next */
 function d3_mean (array, f) {
   var s = 0;
   var n = array.length;
