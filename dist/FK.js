@@ -18,7 +18,7 @@ var $$this = '$this';
 var keys = FK;
 var and = _rindex2.default.both;
 var or = _rindex2.default.either;
-var not = _rindex2.default.complement;
+var not = _rindex2.default.compliment;
 
 // const $noop = function () { };
 // const $undef = function () { return; }
