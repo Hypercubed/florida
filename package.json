@@ -31,7 +31,7 @@
     "coverage": "babel-node node_modules/isparta/bin/isparta cover --report lcov --report html --report text ./test/FK-spec.js",
     "babel": "babel src -d lib",
     "browserify": "browserify lib/FK.js -s FK -o dist/FK.js",
-    "uglify": "uglifyjs dist/FK.js -o dist/FK.min.js",
+    "uglify": "uglifyjs dist/FK.js -o dist/FK.min.js --mangle",
     "build": "npm run babel && npm run browserify && npm run uglify",
     "lint": "semistandard src/*.js test/*.js",
     "check": "npm run lint && npm test"

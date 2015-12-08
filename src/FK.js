@@ -1,4 +1,4 @@
-import R from 'ramda';
+import R from './rindex';
 
 const $$index = '$index';
 const $$this = '$this';
@@ -8,13 +8,15 @@ const and = R.both;
 const or = R.either;
 const not = R.compliment;
 
+// const $noop = function () { };
+// const $undef = function () { return; }
 const $identity = R.identity;
 const $this = function () { return this; };
 const $index = (d, i) => i;
 
 function prop (key) {
   if (R.isNil(key)) return $identity;
-  if (typeof key === 'function') return function () { return key.apply(this, arguments); };
+  if (typeof key === 'function') return key;
   if (key === $$index) return $index;
   if (key === $$this) return $this;
   if (typeof key === 'number') {
@@ -29,48 +31,43 @@ function prop (key) {
   return R.pipe.apply(null, chain);
 }
 
-function FK (key) {
-  var _getter = prop(key);
-  var _fn = {};
+function FK (...args) {
+  var _getter = arguments.length > 1 ? prop(args) : prop(args[0]);
 
-  _fn.get = () => _getter;
+  return {
+    get: () => _getter,
 
-  _fn.satisfies = _ => R.pipe(_getter, _);
+    satisfies: (_) => R.pipe(_getter, _),
+    eq: (_) => R.pipe(_getter, R.equals(_)),
+    is: (_) => R.pipe(_getter, R.identical(_)),
+    match: (_) => R.pipe(_getter, R.test(_)),  // rename test?
 
-  _fn.eq = _ => R.pipe(_getter, R.equals(_));
-  // _fn.eq = _ => _fn.satisfies(R.equals(_));
-  // _fn.eq = R.curry((v, o) => R.equals(v, _getter(o)));
+    gte: (_) => R.pipe(_getter, R.lte(_)), // lte = flip(gte)
+    lte: (_) => R.pipe(_getter, R.gte(_)),  // gte = flip(lte)
+    gt: (_) => R.pipe(_getter, R.lt(_)),  // lt = flip(gt)
+    lt: (_) => R.pipe(_getter, R.gt(_)),  // gt = flip(lt)
 
-  _fn.is = _ => R.pipe(_getter, R.identical(_));
-  _fn.match = _ => R.pipe(_getter, R.test(_));  // rename test?
+    type: () => R.pipe(_getter, R.type),
+    typeof: (_) => R.pipe(_getter, R.type, R.equals(_)),
 
-  _fn.gte = _ => R.pipe(_getter, R.lte(_)); // lte = flip(gte)
-  _fn.lte = _ => R.pipe(_getter, R.gte(_));  // gte = flip(lte)
-  _fn.gt = _ => R.pipe(_getter, R.lt(_));  // lt = flip(gt)
-  _fn.lt = _ => R.pipe(_getter, R.gt(_));  // gt = flip(lt)
+    nil: () => R.pipe(_getter, R.isNil),
+    exists: () => R.pipe(_getter, R.isNil, R.not),
 
-  _fn.type = () => R.pipe(_getter, R.type);
-  _fn.typeof = _ => R.pipe(_getter, R.type, R.equals(_));
+    order: (_) => R.comparator(R.useWith(_, [_getter, _getter])),
 
-  _fn.nil = () => R.pipe(_getter, R.isNil);
-  _fn.exists = () => R.pipe(_getter, R.isNil, R.not);
+    asc: () => R.comparator(R.useWith(R.lt, [_getter, _getter])),
+    desc: () => R.comparator(R.useWith(R.gt, [_getter, _getter])),
 
-  _fn.order = _ => R.comparator(R.useWith(_, [_getter, _getter]));
+    both: (a, b) => {
+      return R.both(R.pipe(_getter, a), R.pipe(_getter, b));
+    },
 
-  _fn.asc = () => _fn.order(R.lt);
-  _fn.desc = () => _fn.order(R.gt);
+    either: (a, b) => {
+      return R.either(R.pipe(_getter, a), R.pipe(_getter, b));
+    },
 
-  _fn.both = (a, b) => {
-    return R.both(R.pipe(_getter, a), R.pipe(_getter, b));
+    between: (a, b) => R.both(R.pipe(_getter, R.lt(a)), R.pipe(_getter, R.gt(b)))
   };
-
-  _fn.either = (a, b) => {
-    return R.either(R.pipe(_getter, a), R.pipe(_getter, b));
-  };
-
-  _fn.between = (a, b) => R.both(_fn.gt(a), _fn.lt(b));
-
-  return _fn;
 }
 
 export {

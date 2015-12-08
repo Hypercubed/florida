@@ -37,7 +37,8 @@ import {keys as FK} from 'florida';
 #### CJS
 
 ```js
-var FK = require('florida').keys;
+var F = require('florida');
+var FK = F.keys;
 ```
 
 ### Accessors

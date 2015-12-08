@@ -119,6 +119,18 @@ test('_F', (t) => {
       t.end();
     });
 
+    t.test('should compose accessor function', (t) => {
+      var f = FK(['year', String]).get();
+      t.equal(f(data[0]), '1977');
+      t.end();
+    });
+
+    t.test('should compose accessor function', (t) => {
+      var f = FK('year', String).get();
+      t.equal(f(data[0]), '1977');
+      t.end();
+    });
+
     t.test('should return an accessor function', (t) => {
       var f = FK(d => d.year).get();
       t.equal(f(data[0]), 1977);
@@ -195,6 +207,12 @@ test('_F', (t) => {
 
     t.test('should work with nested data, with chained keys in array', (t) => {
       var data = { date: { year: 1990 } };
+      t.equal(FK('date', 'year').get()(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with nested data, with chained keys in array', (t) => {
+      var data = { date: { year: 1990 } };
       t.equal(FK(['date', d => d.year]).get()(data), 1990);
       t.end();
     });
@@ -211,6 +229,12 @@ test('_F', (t) => {
       t.end();
     });
 
+    t.test('should work with very deep nested data', (t) => {
+      var data = { events: [ { event: { date: { year: 1990 } } } ] };
+      t.equal(FK('events', 0, 'event.date.year').get()(data), 1990);
+      t.end();
+    });
+
     t.test('should return undefined with missing key', (t) => {
       var data = { date: { year: 1990 } };
       t.equal(FK('year').get()(data), undefined);
@@ -223,6 +247,12 @@ test('_F', (t) => {
     t.test('should return undefined with missing key very deep nested data', (t) => {
       var data = { events: [ { event: { date: { year: 1990 } } } ] };
       t.equal(FK(['events', 1, 'event.date.year']).get()(data), undefined);
+      t.end();
+    });
+
+    t.test('should return undefined with missing key very deep nested data', (t) => {
+      var data = { events: [ { event: { date: { year: 1990 } } } ] };
+      t.equal(FK('events', 1, 'event.date.year').get()(data), undefined);
       t.end();
     });
 
