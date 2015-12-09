@@ -35,7 +35,7 @@ function FK (...args) {
   var _getter = arguments.length > 1 ? prop(args) : prop(args[0]);
 
   return {
-    get: () => _getter,
+    get: (_) => R.pipe(_getter, R.defaultTo(_)),
 
     satisfies: (_) => R.pipe(_getter, _),
     eq: (_) => R.pipe(_getter, R.equals(_)),
@@ -54,18 +54,11 @@ function FK (...args) {
     exists: () => R.pipe(_getter, R.isNil, R.not),
 
     order: (_) => R.comparator(R.useWith(_, [_getter, _getter])),
-
     asc: () => R.comparator(R.useWith(R.lt, [_getter, _getter])),
     desc: () => R.comparator(R.useWith(R.gt, [_getter, _getter])),
 
-    both: (a, b) => {
-      return R.both(R.pipe(_getter, a), R.pipe(_getter, b));
-    },
-
-    either: (a, b) => {
-      return R.either(R.pipe(_getter, a), R.pipe(_getter, b));
-    },
-
+    both: (a, b) => R.both(R.pipe(_getter, a), R.pipe(_getter, b)),
+    either: (a, b) => R.either(R.pipe(_getter, a), R.pipe(_getter, b)),
     between: (a, b) => R.both(R.pipe(_getter, R.lt(a)), R.pipe(_getter, R.gt(b)))
   };
 }

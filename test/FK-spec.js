@@ -63,7 +63,7 @@ function d3_mean (array, f) {
   return j ? s / j : undefined;
 }
 
-test('_F', (t) => {
+test('FK', (t) => {
   t.test('example', (t) => {
     t.test('should run', (t) => {
       var people = [
@@ -100,7 +100,9 @@ test('_F', (t) => {
       //  t.equal(typeof FK(), 'object');
       t.end();
     });
+  });
 
+  t.test('#get', (t) => {
     t.test('should return identity function', (t) => {
       var f = FK().get();
       t.equal(f(5), 5);
@@ -235,15 +237,6 @@ test('_F', (t) => {
       t.end();
     });
 
-    t.test('should return undefined with missing key', (t) => {
-      var data = { date: { year: 1990 } };
-      t.equal(FK('year').get()(data), undefined);
-      t.equal(FK('date.day').get()(data), undefined);
-      t.equal(FK('year.day').get()(data), undefined);
-      t.equal(FK('date.year.value').get()(data), undefined);
-      t.end();
-    });
-
     t.test('should return undefined with missing key very deep nested data', (t) => {
       var data = { events: [ { event: { date: { year: 1990 } } } ] };
       t.equal(FK(['events', 1, 'event.date.year']).get()(data), undefined);
@@ -277,6 +270,24 @@ test('_F', (t) => {
     t.test('should work with numeric keys, returns undefined if out of bounds', (t) => {
       var _missingElement = FK(rows.length);
       t.equal(_missingElement.get()(rows), undefined);
+      t.end();
+    });
+
+    t.test('should return undefined with missing key', (t) => {
+      var data = { date: { year: 1990 } };
+      t.equal(FK('year').get()(data), undefined);
+      t.equal(FK('date.day').get()(data), undefined);
+      t.equal(FK('year.day').get()(data), undefined);
+      t.equal(FK('date.year.value').get()(data), undefined);
+      t.end();
+    });
+
+    t.test('should return default with missing key', (t) => {
+      var data = { date: { year: 1990 } };
+      t.equal(FK('year').get(2000)(data), 2000);
+      t.equal(FK('date.day').get(5)(data), 5);
+      t.equal(FK('year.day').get(6)(data), 6);
+      t.equal(FK('date.year.value').get(7)(data), 7);
       t.end();
     });
   });
@@ -722,6 +733,17 @@ test('_F', (t) => {
       t.equal(mean, 3.845789473684211);
       t.end();
     }); */
+  });
+
+  t.test('#order', (t) => {
+    t.test('should sort bu defined order', (t) => {
+      var value = FK('value');
+
+      var d = data.slice().sort(value.order((a, b) => a < b));
+      t.equal(d.shift().value, 0);
+      t.equal(d.pop().value, 43.7);
+      t.end();
+    });
   });
 
   t.test('#asc', (t) => {
