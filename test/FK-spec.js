@@ -426,6 +426,18 @@ test('FK', (t) => {
     });
   });
 
+  t.test('#isNil', (t) => {
+    t.test('should work', (t) => {
+      var f = FK('year').isNil();
+
+      t.equal(f({ year: 123 }), false);
+      t.equal(f({ }), true);
+      t.equal(f({ year: null }), true);
+      t.equal(data.filter(f).length, 0);
+      t.end();
+    });
+  });
+
   t.test('#exists', (t) => {
     t.test('should work with key', (t) => {
       var f = FK('year').exists();
@@ -433,6 +445,18 @@ test('FK', (t) => {
       t.equal(f({year: 1990, value: 8.89}), true);
       t.equal(f({value: 8.89}), false);
       t.equal(f({year: null}), false);
+      t.equal(f({}), false);
+      t.equal(data.filter(f).length, 29);
+      t.end();
+    });
+  });
+
+  t.test('#type', (t) => {
+    t.test('should work with key', (t) => {
+      var f = FK('year').type();
+
+      t.equal(f({year: 1990, value: 8.89}), 'Number');
+      t.equal(f({year: '1990', value: 8.89}), 'String');
       t.equal(data.filter(f).length, 29);
       t.end();
     });

@@ -1,73 +1,111 @@
-import R from './rindex';
+// these are exported
+import $identity from 'ramda/src/identity';
+import both from 'ramda/src/both';
+import either from 'ramda/src/either';
+import complement from 'ramda/src/complement';
 
+// these are internal
+import isNil from 'ramda/src/isNil';
+import pipe from 'ramda/src/pipe';
+import equals from 'ramda/src/equals';
+import identical from 'ramda/src/identical';
+import test from 'ramda/src/test';
+import lte from 'ramda/src/lte';
+import gte from 'ramda/src/gte';
+import lt from 'ramda/src/lt';
+import gt from 'ramda/src/gt';
+import type from 'ramda/src/type';
+import comparator from 'ramda/src/comparator';
+import useWith from 'ramda/src/useWith';
+import not from 'ramda/src/not';
+import defaultTo from 'ramda/src/defaultTo';
+// import curry from 'ramda/src/curry';
+
+// constants
 const $$index = '$index';
 const $$this = '$this';
 
-const keys = FK;
-const and = R.both;
-const or = R.either;
-const not = R.compliment;
-
-// const $noop = function () { };
-// const $undef = function () { return; }
-const $identity = R.identity;
+// exported getters
 const $this = function () { return this; };
 const $index = (d, i) => i;
 
 function prop (key) {
-  if (R.isNil(key)) return $identity;
+  if (isNil(key)) return $identity;
   if (typeof key === 'function') return key;
   if (key === $$index) return $index;
   if (key === $$this) return $this;
   if (typeof key === 'number') {
-    return (d) => R.isNil(d) ? undefined : d[key];
+    return (d) => isNil(d) ? undefined : d[key];
   }
   if (typeof key === 'string' && key.indexOf('.') === -1) {
-    return (d) => R.isNil(d) ? undefined : d[key];
+    return (d) => isNil(d) ? undefined : d[key];
   }
 
   var chain = (Array.isArray(key)) ? key : key.split('.');
   chain = chain.map(prop);
-  return R.pipe.apply(null, chain);
+  return pipe.apply(null, chain);
 }
 
 function FK (...args) {
-  var _getter = arguments.length > 1 ? prop(args) : prop(args[0]);
+  const _getter = arguments.length > 1 ? prop(args) : prop(args[0]);
+
+  /* function apply (thisArg, args) {
+    var length = args ? args.length : 0;
+    switch (length) {
+      case 0: return _getter.call(thisArg);
+      case 1: return _getter.call(thisArg, args[0]);
+      case 2: return _getter.call(thisArg, args[0], args[1]);
+      case 3: return _getter.call(thisArg, args[0], args[1], args[2]);
+    }
+    return _getter.apply(thisArg, args);
+  } */
+
+  const wrapper = (_) => function () {
+    return _(_getter.apply(this, arguments));
+  };
+
+  const wrap = (f) => {
+    return (_) => wrapper(f(_));
+  };
+
+  const wrap0 = (f) => {
+    return () => wrapper(f);
+  };
 
   return {
-    get: (_) => R.pipe(_getter, R.defaultTo(_)),
+    get: wrap(defaultTo),
 
-    satisfies: (_) => R.pipe(_getter, _),
-    eq: (_) => R.pipe(_getter, R.equals(_)),
-    is: (_) => R.pipe(_getter, R.identical(_)),
-    match: (_) => R.pipe(_getter, R.test(_)),  // rename test?
+    satisfies: wrapper,
+    eq: wrap(equals),
+    is: wrap(identical),
+    match: wrap(test),  // rename test?
 
-    gte: (_) => R.pipe(_getter, R.lte(_)), // lte = flip(gte)
-    lte: (_) => R.pipe(_getter, R.gte(_)),  // gte = flip(lte)
-    gt: (_) => R.pipe(_getter, R.lt(_)),  // lt = flip(gt)
-    lt: (_) => R.pipe(_getter, R.gt(_)),  // gt = flip(lt)
+    gte: wrap(lte), // lte = flip(gte)
+    lte: wrap(gte),  // gte = flip(lte)
+    gt: wrap(lt),  // lt = flip(gt)
+    lt: wrap(gt),  // gt = flip(lt)
 
-    type: () => R.pipe(_getter, R.type),
-    typeof: (_) => R.pipe(_getter, R.type, R.equals(_)),
+    type: wrap0(type),
+    typeof: (_) => pipe(_getter, type, equals(_)),
 
-    nil: () => R.pipe(_getter, R.isNil),
-    exists: () => R.pipe(_getter, R.isNil, R.not),
+    isNil: wrap0(isNil),
+    exists: wrap0(pipe(isNil, not)),
 
-    order: (_) => R.comparator(R.useWith(_, [_getter, _getter])),
-    asc: () => R.comparator(R.useWith(R.lt, [_getter, _getter])),
-    desc: () => R.comparator(R.useWith(R.gt, [_getter, _getter])),
+    order: (_) => comparator(useWith(_, [_getter, _getter])),
+    asc: () => comparator(useWith(lt, [_getter, _getter])),
+    desc: () => comparator(useWith(gt, [_getter, _getter])),
 
-    both: (a, b) => R.both(R.pipe(_getter, a), R.pipe(_getter, b)),
-    either: (a, b) => R.either(R.pipe(_getter, a), R.pipe(_getter, b)),
-    between: (a, b) => R.both(R.pipe(_getter, R.lt(a)), R.pipe(_getter, R.gt(b)))
+    both: (a, b) => both(pipe(_getter, a), pipe(_getter, b)),
+    either: (a, b) => either(pipe(_getter, a), pipe(_getter, b)),
+    between: (a, b) => both(pipe(_getter, lt(a)), pipe(_getter, gt(b)))
   };
 }
 
 export {
-  keys,
-  and,
-  or,
-  not,
+  FK as keys,
+  both as and,
+  either as or,
+  complement as not,
   $index,
   $this,
   $identity
