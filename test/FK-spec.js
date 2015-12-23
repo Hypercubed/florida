@@ -64,25 +64,24 @@ const place = {
 test('map?', function (t) {
   var location = FK('location');
   var number = FK('number');
-  var value = location.map(f => R.pipe(f, number.$)).$(place);
+  var value = location.map(number.compose).$(place);
 
   t.equal(value, 1600);
   t.end();
 });
 
-/* test('ap?', function (t) {
+test('ap?', function (t) {
   var location = FK('location');
   var number = FK('number');
-  var value = location.ap(place);
+  var value = FK(number.compose).ap(location).$(place);
 
   t.equal(value, 1600);
   t.end();
-}); */
+});
 
 test('chain?', function (t) {
-  var location = FK('location');
-  var number = FK('number');
-  var value = location.andThen(number).chain(x => x)(place);
+  var f = FK('location.number');
+  var value = f.chain(f => f(place));
 
   t.equal(value, 1600);
   t.end();

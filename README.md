@@ -43,16 +43,16 @@ var FK = F.keys;
 
 ### Accessors
 
-| FK                                    | Pure JS equivalent                             |
-| ------------------------------------- | ---------------------------------------------- |
-| `FK().get()`                          | `function(d)    { return d; }`                 |
-| `FK('prop').get()`                    | `function(d)    { return d.prop; }`            |
-| `FK('prop.prop').get()`               | `function(d)    { return d.prop.prop; }`       |
-| `FK('prop.prop.prop').get()`          | `function(d)    { return d.prop.prop.prop; }`  |
-| `FK(number).get()`                    | `function(d)    { return d[number]; }`         |
-| `FK('$index').get()`                  | `function(d, i) { return i; }`                 |
-| `FK('$this').get()`                   | `function()     { return this; }`              |
-| `FK(['prop', number, 'prop']).get()`  | `function(d)    { return d.prop[0].prop; }`    |
+| FK                                | Pure JS equivalent                             |
+| --------------------------------- | ---------------------------------------------- |
+| `FK().$`                          | `function(d)    { return d; }`                 |
+| `FK('prop').$`                    | `function(d)    { return d.prop; }`            |
+| `FK('prop.prop').$`               | `function(d)    { return d.prop.prop; }`       |
+| `FK('prop.prop.prop').$`          | `function(d)    { return d.prop.prop.prop; }`  |
+| `FK(number).$`                    | `function(d)    { return d[number]; }`         |
+| `FK('$index').$`                  | `function(d, i) { return i; }`                 |
+| `FK('$this').$`                   | `function()     { return this; }`              |
+| `FK(['prop', 0, 'prop']).$`       | `function(d)    { return d.prop[0].prop; }`    |
 
 _Example_
 ```js
@@ -150,7 +150,7 @@ var _year_filter = function(date) {
 }
 
 var _filter = _year_filter(new Date('1990 Jan 1'));
-values = data.filter(_filter).map(_value.get);
+values = data.filter(_filter).map(_value);
 ```
 
 It's a little ugly but here the `Date` constructor is only called once and the `_year_filter` function returns the accessor.  An new accessor can be created any time by calling `_year_filter`
@@ -188,18 +188,18 @@ Ok, no we are getting ridiculous.  The date constructor is not that expensive.  
 Ok, at this point let me introduce `FK`.  `FK` is simply a shortcut for all this.  For example:
 
 ```js
-var _value = FK('value').get();
-values = data.map(_value);
+var _value = FK('value');
+values = data.map(_value.$);
 ```
 
-The value returned from `FK('value').get` in this case is simply the accessor function `function(d) { return d.value; }`.
+The value returned from `FK('value').$` in this case is simply the accessor function `function(d) { return d.value; }`.
 
 Interesting.  How about this:
 
 ```js
-var _value = FK('value').get();
+var _value = FK('value');
 var _year_filter = FK('year').gte(new Date('1980 Jan 1'));
-values = data.filter(_year_filter).map(_value);
+values = data.filter(_year_filter).map(_value.$);
 ```
 
 `FK('year').gte(somevalue)`  is essentially a shortcut for `function(d) { return d.year >= somevalue; }`.
@@ -207,12 +207,12 @@ values = data.filter(_year_filter).map(_value);
 It gets better:
 
 ```js
-var _value = FK('value').get();
+var _value = FK('value');
 
 var _year_filter =
   FK('year').both(FK().gte(new Date('1980 Jan 1')), FK().lt(new Date('1990 Jan 1')));
 
-values = data.filter(_year_filter).map(_value);
+values = data.filter(_year_filter).map(_value.$);
 ```
 
 or how about this:
@@ -226,7 +226,7 @@ var _year_filter = _year.both(FK().gte(new Date('1980 Jan 1'), FK().lt(new Date(
 
 var _filter = F.and(_value_filter, _year_filter);
 
-values = data.filter(_filter).map(_value.get());
+values = data.filter(_filter).map(_value.$);
 ```
 
 Pretty neat?
