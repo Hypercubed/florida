@@ -19,7 +19,7 @@ import comparator from 'ramda/src/comparator';
 import useWith from 'ramda/src/useWith';
 import not from 'ramda/src/not';
 import defaultTo from 'ramda/src/defaultTo';
-// import curry from 'ramda/src/curry';
+// import compose from 'ramda/src/compose';
 
 // constants
 const $$index = '$index';
@@ -40,6 +40,9 @@ function prop (key) {
   if (typeof key === 'string' && key.indexOf('.') === -1) {
     return (d) => isNil(d) ? undefined : d[key];
   }
+  if (key.isFK) {
+    return key.$;
+  }
 
   var chain = (Array.isArray(key)) ? key : key.split('.');
   chain = chain.map(prop);
@@ -47,35 +50,49 @@ function prop (key) {
 }
 
 function FK (...args) {
-  const _getter = arguments.length > 1 ? prop(args) : prop(args[0]);
+  // if (this instanceof FK !== true) { return new FK(...args); }
+
+  const _value = arguments.length > 1 ? prop(args) : prop(args[0]);
 
   /* function apply (thisArg, args) {
     var length = args ? args.length : 0;
     switch (length) {
-      case 0: return _getter.call(thisArg);
-      case 1: return _getter.call(thisArg, args[0]);
-      case 2: return _getter.call(thisArg, args[0], args[1]);
-      case 3: return _getter.call(thisArg, args[0], args[1], args[2]);
+      case 0: return _value.call(thisArg);
+      case 1: return _value.call(thisArg, args[0]);
+      case 2: return _value.call(thisArg, args[0], args[1]);
+      case 3: return _value.call(thisArg, args[0], args[1], args[2]);
     }
-    return _getter.apply(thisArg, args);
+    return _value.apply(thisArg, args);
   } */
 
-  const wrapper = (_) => function () {
-    return _(_getter.apply(this, arguments));
-  };
+  const pipeline = (...f) => pipe(_value, ...f);
 
-  const wrap = (f) => {
-    return (_) => wrapper(f(_));
-  };
+  const wrap = f => (...v) => pipeline(f(...v));
 
-  const wrap0 = (f) => {
-    return () => wrapper(f);
-  };
+  const wrap0 = (...f) => () => pipeline(...f);
 
   return {
+    value: _value,
+    $: _value,
+    extract: () => _value,
+
+    // fantasyland?
+    of: FK,                       // Applicative
+    map: f => FK(f(_value)),      // Functor
+    ap: b => FK(_value(b.value)), // Apply
+    chain: f => f(_value),        // Chain
+    // extend: f => FK(f(_value)),
+
+    // composition
+    andThen: f => FK(pipe(_value, prop(f))),
+    compose: b => FK(pipe(prop(b), _value)),
+
+    isFK: true,
+
+    // values
     get: wrap(defaultTo),
 
-    satisfies: wrapper,
+    satisfies: pipeline,
     eq: wrap(equals),
     is: wrap(identical),
     match: wrap(test),  // rename test?
@@ -86,18 +103,18 @@ function FK (...args) {
     lt: wrap(gt),  // gt = flip(lt)
 
     type: wrap0(type),
-    typeof: (_) => pipe(_getter, type, equals(_)),
+    typeof: (_) => pipeline(type, equals(_)),
 
     isNil: wrap0(isNil),
-    exists: wrap0(pipe(isNil, not)),
+    exists: wrap0(isNil, not),
 
-    order: (_) => comparator(useWith(_, [_getter, _getter])),
-    asc: () => comparator(useWith(lt, [_getter, _getter])),
-    desc: () => comparator(useWith(gt, [_getter, _getter])),
+    order: (_) => comparator(useWith(_, [_value, _value])),
+    asc: () => comparator(useWith(lt, [_value, _value])),
+    desc: () => comparator(useWith(gt, [_value, _value])),
 
-    both: (a, b) => both(pipe(_getter, a), pipe(_getter, b)),
-    either: (a, b) => either(pipe(_getter, a), pipe(_getter, b)),
-    between: (a, b) => both(pipe(_getter, lt(a)), pipe(_getter, gt(b)))
+    both: (a, b) => both(pipe(_value, a), pipe(_value, b)),
+    either: (a, b) => either(pipe(_value, a), pipe(_value, b)),
+    between: (a, b) => both(pipe(_value, lt(a)), pipe(_value, gt(b)))
   };
 }
 

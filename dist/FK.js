@@ -22,9 +22,9 @@ var _complement = require('ramda/src/complement');
 
 var _complement2 = _interopRequireDefault(_complement);
 
-var _isNil2 = require('ramda/src/isNil');
+var _isNil = require('ramda/src/isNil');
 
-var _isNil3 = _interopRequireDefault(_isNil2);
+var _isNil2 = _interopRequireDefault(_isNil);
 
 var _pipe = require('ramda/src/pipe');
 
@@ -80,6 +80,8 @@ var _defaultTo2 = _interopRequireDefault(_defaultTo);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+// import compose from 'ramda/src/compose';
+
 // constants
 
 // these are internal
@@ -96,19 +98,22 @@ var $index = function $index(d, i) {
 };
 
 function prop(key) {
-  if ((0, _isNil3.default)(key)) return _identity2.default;
+  if ((0, _isNil2.default)(key)) return _identity2.default;
   if (typeof key === 'function') return key;
   if (key === $$index) return $index;
   if (key === $$this) return $this;
   if (typeof key === 'number') {
     return function (d) {
-      return (0, _isNil3.default)(d) ? undefined : d[key];
+      return (0, _isNil2.default)(d) ? undefined : d[key];
     };
   }
   if (typeof key === 'string' && key.indexOf('.') === -1) {
     return function (d) {
-      return (0, _isNil3.default)(d) ? undefined : d[key];
+      return (0, _isNil2.default)(d) ? undefined : d[key];
     };
+  }
+  if (key.isFK) {
+    return key.$;
   }
 
   var chain = Array.isArray(key) ? key : key.split('.');
@@ -121,72 +126,114 @@ function FK() {
     args[_key] = arguments[_key];
   }
 
-  var _getter = arguments.length > 1 ? prop(args) : prop(args[0]);
-  var S = function S(_) {
-    return (0, _pipe2.default)(_getter, _);
+  // if (this instanceof FK !== true) { return new FK(...args); }
+
+  var _value = arguments.length > 1 ? prop(args) : prop(args[0]);
+
+  /* function apply (thisArg, args) {
+    var length = args ? args.length : 0;
+    switch (length) {
+      case 0: return _value.call(thisArg);
+      case 1: return _value.call(thisArg, args[0]);
+      case 2: return _value.call(thisArg, args[0], args[1]);
+      case 3: return _value.call(thisArg, args[0], args[1], args[2]);
+    }
+    return _value.apply(thisArg, args);
+  } */
+
+  var pipeline = function pipeline() {
+    for (var _len2 = arguments.length, f = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+      f[_key2] = arguments[_key2];
+    }
+
+    return _pipe2.default.apply(undefined, [_value].concat(f));
+  };
+
+  var wrap = function wrap(f) {
+    return function () {
+      return pipeline(f.apply(undefined, arguments));
+    };
+  };
+
+  var wrap0 = function wrap0() {
+    for (var _len3 = arguments.length, f = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+      f[_key3] = arguments[_key3];
+    }
+
+    return function () {
+      return pipeline.apply(undefined, f);
+    };
   };
 
   return {
-    get: function get(_) {
-      return S((0, _defaultTo2.default)(_));
+    value: _value,
+    $: _value,
+    extract: function extract() {
+      return _value;
     },
 
-    satisfies: S,
-    eq: function eq(_) {
-      return S((0, _equals2.default)(_));
-    },
-    is: function is(_) {
-      return S((0, _identical2.default)(_));
-    },
-    match: function match(_) {
-      return S((0, _test2.default)(_));
-    }, // rename test?
+    // fantasyland?
+    of: FK, // Applicative
+    map: function map(f) {
+      return FK(f(_value));
+    }, // Functor
+    ap: function ap(b) {
+      return FK(_value(b.value));
+    }, // Apply
+    chain: function chain(f) {
+      return f(_value);
+    }, // Chain
+    // extend: f => FK(f(_value)),
 
-    gte: function gte(_) {
-      return S((0, _lte2.default)(_));
-    }, // lte = flip(gte)
-    lte: function lte(_) {
-      return S((0, _gte2.default)(_));
-    }, // gte = flip(lte)
-    gt: function gt(_) {
-      return S((0, _lt2.default)(_));
-    }, // lt = flip(gt)
-    lt: function lt(_) {
-      return S((0, _gt2.default)(_));
-    }, // gt = flip(lt)
-
-    type: function type() {
-      return S(_type2.default);
+    // composition
+    andThen: function andThen(f) {
+      return FK((0, _pipe2.default)(_value, prop(f)));
     },
+    compose: function compose(b) {
+      return FK((0, _pipe2.default)(prop(b), _value));
+    },
+
+    isFK: true,
+
+    // values
+    get: wrap(_defaultTo2.default),
+
+    satisfies: pipeline,
+    eq: wrap(_equals2.default),
+    is: wrap(_identical2.default),
+    match: wrap(_test2.default), // rename test?
+
+    gte: wrap(_lte2.default), // lte = flip(gte)
+    lte: wrap(_gte2.default), // gte = flip(lte)
+    gt: wrap(_lt2.default), // lt = flip(gt)
+    lt: wrap(_gt2.default), // gt = flip(lt)
+
+    type: wrap0(_type2.default),
     typeof: function _typeof(_) {
-      return (0, _pipe2.default)(_getter, _type2.default, (0, _equals2.default)(_));
+      return pipeline(_type2.default, (0, _equals2.default)(_));
     },
 
-    isNil: function isNil() {
-      return S(_isNil3.default);
-    },
-    exists: function exists() {
-      return (0, _pipe2.default)(_getter, _isNil3.default, _not2.default);
-    },
+    isNil: wrap0(_isNil2.default),
+    exists: wrap0(_isNil2.default, _not2.default),
 
     order: function order(_) {
-      return (0, _comparator2.default)((0, _useWith2.default)(_, [_getter, _getter]));
+      return (0, _comparator2.default)((0, _useWith2.default)(_, [_value, _value]));
     },
     asc: function asc() {
-      return (0, _comparator2.default)((0, _useWith2.default)(_lt2.default, [_getter, _getter]));
+      return (0, _comparator2.default)((0, _useWith2.default)(_lt2.default, [_value, _value]));
     },
     desc: function desc() {
-      return (0, _comparator2.default)((0, _useWith2.default)(_gt2.default, [_getter, _getter]));
+      return (0, _comparator2.default)((0, _useWith2.default)(_gt2.default, [_value, _value]));
     },
 
     both: function both(a, b) {
-      return (0, _both3.default)(S(a), S(b));
+      return (0, _both3.default)((0, _pipe2.default)(_value, a), (0, _pipe2.default)(_value, b));
     },
     either: function either(a, b) {
-      return (0, _either3.default)(S(a), S(b));
+      return (0, _either3.default)((0, _pipe2.default)(_value, a), (0, _pipe2.default)(_value, b));
     },
     between: function between(a, b) {
-      return (0, _both3.default)(S((0, _lt2.default)(a)), S((0, _gt2.default)(b)));
+      return (0, _both3.default)((0, _pipe2.default)(_value, (0, _lt2.default)(a)), (0, _pipe2.default)(_value, (0, _gt2.default)(b)));
     }
   };
 }
@@ -198,34 +245,7 @@ exports.not = _complement2.default;
 exports.$index = $index;
 exports.$this = $this;
 exports.$identity = _identity2.default;
-},{"ramda/src/both":5,"ramda/src/comparator":6,"ramda/src/complement":7,"ramda/src/defaultTo":10,"ramda/src/either":11,"ramda/src/equals":12,"ramda/src/gt":14,"ramda/src/gte":15,"ramda/src/identical":16,"ramda/src/identity":17,"ramda/src/isNil":50,"ramda/src/lt":54,"ramda/src/lte":55,"ramda/src/not":57,"ramda/src/pipe":59,"ramda/src/test":64,"ramda/src/type":66,"ramda/src/useWith":67}],2:[function(require,module,exports){
-var _curry2 = require('./internal/_curry2');
-
-
-/**
- * Returns `true` if both arguments are `true`; `false` otherwise.
- *
- * @func
- * @memberOf R
- * @since v0.1.0
- * @category Logic
- * @sig * -> * -> *
- * @param {Boolean} a A boolean value
- * @param {Boolean} b A boolean value
- * @return {Boolean} `true` if both arguments are `true`, `false` otherwise
- * @see R.both
- * @example
- *
- *      R.and(true, true); //=> true
- *      R.and(true, false); //=> false
- *      R.and(false, true); //=> false
- *      R.and(false, false); //=> false
- */
-module.exports = _curry2(function and(a, b) {
-  return a && b;
-});
-
-},{"./internal/_curry2":26}],3:[function(require,module,exports){
+},{"ramda/src/both":4,"ramda/src/comparator":5,"ramda/src/complement":6,"ramda/src/defaultTo":8,"ramda/src/either":9,"ramda/src/equals":10,"ramda/src/gt":12,"ramda/src/gte":13,"ramda/src/identical":14,"ramda/src/identity":15,"ramda/src/isNil":50,"ramda/src/lt":54,"ramda/src/lte":55,"ramda/src/not":57,"ramda/src/pipe":58,"ramda/src/test":63,"ramda/src/type":65,"ramda/src/useWith":66}],2:[function(require,module,exports){
 var _concat = require('./internal/_concat');
 var _curry2 = require('./internal/_curry2');
 var _reduce = require('./internal/_reduce');
@@ -236,8 +256,8 @@ var map = require('./map');
 /**
  * ap applies a list of functions to a list of values.
  *
- * Dispatches to the `ap` method of the second argument, if present. Also treats
- * functions as applicatives.
+ * Dispatches to the `ap` method of the second argument, if present. Also
+ * treats functions as applicatives.
  *
  * @func
  * @memberOf R
@@ -264,7 +284,7 @@ module.exports = _curry2(function ap(applicative, fn) {
   );
 });
 
-},{"./curryN":9,"./internal/_concat":23,"./internal/_curry2":26,"./internal/_reduce":41,"./map":56}],4:[function(require,module,exports){
+},{"./curryN":7,"./internal/_concat":21,"./internal/_curry2":24,"./internal/_reduce":41,"./map":56}],3:[function(require,module,exports){
 var _arity = require('./internal/_arity');
 var _curry2 = require('./internal/_curry2');
 
@@ -279,11 +299,11 @@ var _curry2 = require('./internal/_curry2');
  * @since v0.6.0
  * @category Function
  * @category Object
- * @see R.partial
  * @sig (* -> *) -> {*} -> (* -> *)
  * @param {Function} fn The function to bind to context
  * @param {Object} thisObj The context to bind `fn` to
  * @return {Function} A function that will execute in the context of `thisObj`.
+ * @see R.partial
  */
 module.exports = _curry2(function bind(fn, thisObj) {
   return _arity(fn.length, function() {
@@ -291,16 +311,16 @@ module.exports = _curry2(function bind(fn, thisObj) {
   });
 });
 
-},{"./internal/_arity":18,"./internal/_curry2":26}],5:[function(require,module,exports){
-var and = require('./and');
-var lift = require('./lift');
+},{"./internal/_arity":16,"./internal/_curry2":24}],4:[function(require,module,exports){
+var _curry2 = require('./internal/_curry2');
 
 
 /**
- * A function wrapping calls to the two functions in an `&&` operation, returning the result of the first
- * function if it is false-y and the result of the second function otherwise.
- *
- * `R.both` will work on all other applicatives as well.
+ * A function wrapping calls to the two functions in an `&&` operation,
+ * returning the result of the first function if it is false-y and the result
+ * of the second function otherwise. Note that this is short-circuited,
+ * meaning that the second function will not be invoked if the first returns a
+ * false-y value.
  *
  * @func
  * @memberOf R
@@ -319,14 +339,19 @@ var lift = require('./lift');
  *      f(100); //=> true
  *      f(101); //=> false
  */
-module.exports = lift(and);
+module.exports = _curry2(function both(f, g) {
+  return function _both() {
+    return f.apply(this, arguments) && g.apply(this, arguments);
+  };
+});
 
-},{"./and":2,"./lift":52}],6:[function(require,module,exports){
+},{"./internal/_curry2":24}],5:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 
 
 /**
- * Makes a comparator function out of a function that reports whether the first element is less than the second.
+ * Makes a comparator function out of a function that reports whether the first
+ * element is less than the second.
  *
  * @func
  * @memberOf R
@@ -349,7 +374,7 @@ module.exports = _curry1(function comparator(pred) {
   };
 });
 
-},{"./internal/_curry1":25}],7:[function(require,module,exports){
+},{"./internal/_curry1":23}],6:[function(require,module,exports){
 var lift = require('./lift');
 var not = require('./not');
 
@@ -382,57 +407,7 @@ var not = require('./not');
  */
 module.exports = lift(not);
 
-},{"./lift":52,"./not":57}],8:[function(require,module,exports){
-var _curry1 = require('./internal/_curry1');
-var curryN = require('./curryN');
-
-
-/**
- * Returns a curried equivalent of the provided function. The curried
- * function has two unusual capabilities. First, its arguments needn't
- * be provided one at a time. If `f` is a ternary function and `g` is
- * `R.curry(f)`, the following are equivalent:
- *
- *   - `g(1)(2)(3)`
- *   - `g(1)(2, 3)`
- *   - `g(1, 2)(3)`
- *   - `g(1, 2, 3)`
- *
- * Secondly, the special placeholder value `R.__` may be used to specify
- * "gaps", allowing partial application of any combination of arguments,
- * regardless of their positions. If `g` is as above and `_` is `R.__`,
- * the following are equivalent:
- *
- *   - `g(1, 2, 3)`
- *   - `g(_, 2, 3)(1)`
- *   - `g(_, _, 3)(1)(2)`
- *   - `g(_, _, 3)(1, 2)`
- *   - `g(_, 2)(1)(3)`
- *   - `g(_, 2)(1, 3)`
- *   - `g(_, 2)(_, 3)(1)`
- *
- * @func
- * @memberOf R
- * @since v0.1.0
- * @category Function
- * @sig (* -> a) -> (* -> a)
- * @param {Function} fn The function to curry.
- * @return {Function} A new, curried function.
- * @see R.curryN
- * @example
- *
- *      var addFourNumbers = (a, b, c, d) => a + b + c + d;
- *
- *      var curriedAddFourNumbers = R.curry(addFourNumbers);
- *      var f = curriedAddFourNumbers(1, 2);
- *      var g = f(3);
- *      g(4); //=> 10
- */
-module.exports = _curry1(function curry(fn) {
-  return curryN(fn.length, fn);
-});
-
-},{"./curryN":9,"./internal/_curry1":25}],9:[function(require,module,exports){
+},{"./lift":52,"./not":57}],7:[function(require,module,exports){
 var _arity = require('./internal/_arity');
 var _curry1 = require('./internal/_curry1');
 var _curry2 = require('./internal/_curry2');
@@ -440,10 +415,10 @@ var _curryN = require('./internal/_curryN');
 
 
 /**
- * Returns a curried equivalent of the provided function, with the
- * specified arity. The curried function has two unusual capabilities.
- * First, its arguments needn't be provided one at a time. If `g` is
- * `R.curryN(3, f)`, the following are equivalent:
+ * Returns a curried equivalent of the provided function, with the specified
+ * arity. The curried function has two unusual capabilities. First, its
+ * arguments needn't be provided one at a time. If `g` is `R.curryN(3, f)`, the
+ * following are equivalent:
  *
  *   - `g(1)(2)(3)`
  *   - `g(1)(2, 3)`
@@ -452,8 +427,8 @@ var _curryN = require('./internal/_curryN');
  *
  * Secondly, the special placeholder value `R.__` may be used to specify
  * "gaps", allowing partial application of any combination of arguments,
- * regardless of their positions. If `g` is as above and `_` is `R.__`,
- * the following are equivalent:
+ * regardless of their positions. If `g` is as above and `_` is `R.__`, the
+ * following are equivalent:
  *
  *   - `g(1, 2, 3)`
  *   - `g(_, 2, 3)(1)`
@@ -488,7 +463,7 @@ module.exports = _curry2(function curryN(length, fn) {
   return _arity(length, _curryN(length, [], fn));
 });
 
-},{"./internal/_arity":18,"./internal/_curry1":25,"./internal/_curry2":26,"./internal/_curryN":28}],10:[function(require,module,exports){
+},{"./internal/_arity":16,"./internal/_curry1":23,"./internal/_curry2":24,"./internal/_curryN":26}],8:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
@@ -517,16 +492,16 @@ module.exports = _curry2(function defaultTo(d, v) {
   return v == null || v !== v ? d : v;
 });
 
-},{"./internal/_curry2":26}],11:[function(require,module,exports){
-var lift = require('./lift');
-var or = require('./or');
+},{"./internal/_curry2":24}],9:[function(require,module,exports){
+var _curry2 = require('./internal/_curry2');
 
 
 /**
- * A function wrapping calls to the two functions in an `||` operation, returning the result of the first
- * function if it is truth-y and the result of the second function otherwise.
- *
- * `R.either` will work on all other applicatives as well.
+ * A function wrapping calls to the two functions in an `||` operation,
+ * returning the result of the first function if it is truth-y and the result
+ * of the second function otherwise. Note that this is short-circuited,
+ * meaning that the second function will not be invoked if the first returns a
+ * truth-y value.
  *
  * @func
  * @memberOf R
@@ -545,19 +520,23 @@ var or = require('./or');
  *      f(101); //=> true
  *      f(8); //=> true
  */
-module.exports = lift(or);
+module.exports = _curry2(function either(f, g) {
+  return function _either() {
+    return f.apply(this, arguments) || g.apply(this, arguments);
+  };
+});
 
-},{"./lift":52,"./or":58}],12:[function(require,module,exports){
+},{"./internal/_curry2":24}],10:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 var _equals = require('./internal/_equals');
 
 
 /**
- * Returns `true` if its arguments are equivalent, `false` otherwise.
- * Dispatches to an `equals` method if present. Handles cyclical data
- * structures.
+ * Returns `true` if its arguments are equivalent, `false` otherwise. Handles
+ * cyclical data structures.
  *
- * Dispatches to the `equals` method of both arguments, if present.
+ * Dispatches symmetrically to the `equals` methods of both arguments, if
+ * present.
  *
  * @func
  * @memberOf R
@@ -581,50 +560,63 @@ module.exports = _curry2(function equals(a, b) {
   return _equals(a, b, [], []);
 });
 
-},{"./internal/_curry2":26,"./internal/_equals":30}],13:[function(require,module,exports){
+},{"./internal/_curry2":24,"./internal/_equals":28}],11:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 var _dispatchable = require('./internal/_dispatchable');
 var _filter = require('./internal/_filter');
+var _isObject = require('./internal/_isObject');
+var _reduce = require('./internal/_reduce');
 var _xfilter = require('./internal/_xfilter');
+var keys = require('./keys');
 
 
 /**
- * Returns a new list containing only those items that match a given predicate function.
- * The predicate function is passed one argument: *(value)*.
- *
- * Note that `R.filter` does not skip deleted or unassigned indices, unlike the native
- * `Array.prototype.filter` method. For more details on this behavior, see:
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter#Description
+ * Takes a predicate and a "filterable", and returns a new filterable of the
+ * same type containing the members of the given filterable which satisfy the
+ * given predicate.
  *
  * Dispatches to the `filter` method of the second argument, if present.
  *
  * Acts as a transducer if a transformer is given in list position.
- * @see R.transduce
  *
  * @func
  * @memberOf R
  * @since v0.1.0
  * @category List
- * @sig (a -> Boolean) -> [a] -> [a]
- * @param {Function} fn The function called per iteration.
- * @param {Array} list The collection to iterate over.
- * @return {Array} The new filtered array.
- * @see R.reject
+ * @sig Filterable f => (a -> Boolean) -> f a -> f a
+ * @param {Function} pred
+ * @param {Array} filterable
+ * @return {Array}
+ * @see R.reject, R.transduce, R.addIndex
  * @example
  *
  *      var isEven = n => n % 2 === 0;
  *
  *      R.filter(isEven, [1, 2, 3, 4]); //=> [2, 4]
+ *
+ *      R.filter(isEven, {a: 1, b: 2, c: 3, d: 4}); //=> {b: 2, d: 4}
  */
-module.exports = _curry2(_dispatchable('filter', _xfilter, _filter));
+module.exports = _curry2(_dispatchable('filter', _xfilter, function(pred, filterable) {
+  return (
+    _isObject(filterable) ?
+      _reduce(function(acc, key) {
+        if (pred(filterable[key])) {
+          acc[key] = filterable[key];
+        }
+        return acc;
+      }, {}, keys(filterable)) :
+    // else
+      _filter(pred, filterable)
+  );
+}));
 
-},{"./internal/_curry2":26,"./internal/_dispatchable":29,"./internal/_filter":31,"./internal/_xfilter":46}],14:[function(require,module,exports){
+},{"./internal/_curry2":24,"./internal/_dispatchable":27,"./internal/_filter":29,"./internal/_isObject":34,"./internal/_reduce":41,"./internal/_xfilter":46,"./keys":51}],12:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
 /**
- * Returns `true` if the first argument is greater than the second;
- * `false` otherwise.
+ * Returns `true` if the first argument is greater than the second; `false`
+ * otherwise.
  *
  * @func
  * @memberOf R
@@ -645,7 +637,7 @@ var _curry2 = require('./internal/_curry2');
  */
 module.exports = _curry2(function gt(a, b) { return a > b; });
 
-},{"./internal/_curry2":26}],15:[function(require,module,exports){
+},{"./internal/_curry2":24}],13:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
@@ -672,7 +664,7 @@ var _curry2 = require('./internal/_curry2');
  */
 module.exports = _curry2(function gte(a, b) { return a >= b; });
 
-},{"./internal/_curry2":26}],16:[function(require,module,exports){
+},{"./internal/_curry2":24}],14:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
@@ -710,14 +702,14 @@ module.exports = _curry2(function identical(a, b) {
   }
 });
 
-},{"./internal/_curry2":26}],17:[function(require,module,exports){
+},{"./internal/_curry2":24}],15:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 var _identity = require('./internal/_identity');
 
 
 /**
- * A function that does nothing but return the parameter supplied to it. Good as a default
- * or placeholder function.
+ * A function that does nothing but return the parameter supplied to it. Good
+ * as a default or placeholder function.
  *
  * @func
  * @memberOf R
@@ -735,9 +727,9 @@ var _identity = require('./internal/_identity');
  */
 module.exports = _curry1(_identity);
 
-},{"./internal/_curry1":25,"./internal/_identity":33}],18:[function(require,module,exports){
+},{"./internal/_curry1":23,"./internal/_identity":31}],16:[function(require,module,exports){
 module.exports = function _arity(n, fn) {
-  // jshint unused:vars
+  /* eslint-disable no-unused-vars */
   switch (n) {
     case 0: return function() { return fn.apply(this, arguments); };
     case 1: return function(a0) { return fn.apply(this, arguments); };
@@ -754,7 +746,7 @@ module.exports = function _arity(n, fn) {
   }
 };
 
-},{}],19:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 module.exports = function _arrayFromIterator(iter) {
   var list = [];
   var next;
@@ -764,15 +756,15 @@ module.exports = function _arrayFromIterator(iter) {
   return list;
 };
 
-},{}],20:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 var _isArray = require('./_isArray');
 var _slice = require('./_slice');
 
 
 /**
  * Similar to hasMethod, this checks whether a function has a [methodname]
- * function. If it isn't an array it will execute that function otherwise it will
- * default to the ramda implementation.
+ * function. If it isn't an array it will execute that function otherwise it
+ * will default to the ramda implementation.
  *
  * @private
  * @param {Function} fn ramda implemtation
@@ -792,7 +784,7 @@ module.exports = function _checkForMethod(methodname, fn) {
   };
 };
 
-},{"./_isArray":35,"./_slice":42}],21:[function(require,module,exports){
+},{"./_isArray":33,"./_slice":42}],19:[function(require,module,exports){
 module.exports = function _cloneRegExp(pattern) {
   return new RegExp(pattern.source, (pattern.global     ? 'g' : '') +
                                     (pattern.ignoreCase ? 'i' : '') +
@@ -801,14 +793,14 @@ module.exports = function _cloneRegExp(pattern) {
                                     (pattern.unicode    ? 'u' : ''));
 };
 
-},{}],22:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 module.exports = function _complement(f) {
   return function() {
     return !f.apply(this, arguments);
   };
 };
 
-},{}],23:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /**
  * Private `concat` function to merge two array-like objects.
  *
@@ -841,7 +833,7 @@ module.exports = function _concat(set1, set2) {
   return result;
 };
 
-},{}],24:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 var _indexOf = require('./_indexOf');
 
 
@@ -849,7 +841,10 @@ module.exports = function _contains(a, list) {
   return _indexOf(list, a, 0) >= 0;
 };
 
-},{"./_indexOf":34}],25:[function(require,module,exports){
+},{"./_indexOf":32}],23:[function(require,module,exports){
+var _isPlaceholder = require('./_isPlaceholder');
+
+
 /**
  * Optimized internal one-arity curry function.
  *
@@ -860,9 +855,7 @@ module.exports = function _contains(a, list) {
  */
 module.exports = function _curry1(fn) {
   return function f1(a) {
-    if (arguments.length === 0) {
-      return f1;
-    } else if (a != null && a['@@functional/placeholder'] === true) {
+    if (arguments.length === 0 || _isPlaceholder(a)) {
       return f1;
     } else {
       return fn.apply(this, arguments);
@@ -870,8 +863,9 @@ module.exports = function _curry1(fn) {
   };
 };
 
-},{}],26:[function(require,module,exports){
+},{"./_isPlaceholder":35}],24:[function(require,module,exports){
 var _curry1 = require('./_curry1');
+var _isPlaceholder = require('./_isPlaceholder');
 
 
 /**
@@ -884,29 +878,25 @@ var _curry1 = require('./_curry1');
  */
 module.exports = function _curry2(fn) {
   return function f2(a, b) {
-    var n = arguments.length;
-    if (n === 0) {
-      return f2;
-    } else if (n === 1 && a != null && a['@@functional/placeholder'] === true) {
-      return f2;
-    } else if (n === 1) {
-      return _curry1(function(b) { return fn(a, b); });
-    } else if (n === 2 && a != null && a['@@functional/placeholder'] === true &&
-                          b != null && b['@@functional/placeholder'] === true) {
-      return f2;
-    } else if (n === 2 && a != null && a['@@functional/placeholder'] === true) {
-      return _curry1(function(a) { return fn(a, b); });
-    } else if (n === 2 && b != null && b['@@functional/placeholder'] === true) {
-      return _curry1(function(b) { return fn(a, b); });
-    } else {
-      return fn(a, b);
+    switch (arguments.length) {
+      case 0:
+        return f2;
+      case 1:
+        return _isPlaceholder(a) ? f2
+             : _curry1(function(_b) { return fn(a, _b); });
+      default:
+        return _isPlaceholder(a) && _isPlaceholder(b) ? f2
+             : _isPlaceholder(a) ? _curry1(function(_a) { return fn(_a, b); })
+             : _isPlaceholder(b) ? _curry1(function(_b) { return fn(a, _b); })
+             : fn(a, b);
     }
   };
 };
 
-},{"./_curry1":25}],27:[function(require,module,exports){
+},{"./_curry1":23,"./_isPlaceholder":35}],25:[function(require,module,exports){
 var _curry1 = require('./_curry1');
 var _curry2 = require('./_curry2');
+var _isPlaceholder = require('./_isPlaceholder');
 
 
 /**
@@ -919,49 +909,33 @@ var _curry2 = require('./_curry2');
  */
 module.exports = function _curry3(fn) {
   return function f3(a, b, c) {
-    var n = arguments.length;
-    if (n === 0) {
-      return f3;
-    } else if (n === 1 && a != null && a['@@functional/placeholder'] === true) {
-      return f3;
-    } else if (n === 1) {
-      return _curry2(function(b, c) { return fn(a, b, c); });
-    } else if (n === 2 && a != null && a['@@functional/placeholder'] === true &&
-                          b != null && b['@@functional/placeholder'] === true) {
-      return f3;
-    } else if (n === 2 && a != null && a['@@functional/placeholder'] === true) {
-      return _curry2(function(a, c) { return fn(a, b, c); });
-    } else if (n === 2 && b != null && b['@@functional/placeholder'] === true) {
-      return _curry2(function(b, c) { return fn(a, b, c); });
-    } else if (n === 2) {
-      return _curry1(function(c) { return fn(a, b, c); });
-    } else if (n === 3 && a != null && a['@@functional/placeholder'] === true &&
-                          b != null && b['@@functional/placeholder'] === true &&
-                          c != null && c['@@functional/placeholder'] === true) {
-      return f3;
-    } else if (n === 3 && a != null && a['@@functional/placeholder'] === true &&
-                          b != null && b['@@functional/placeholder'] === true) {
-      return _curry2(function(a, b) { return fn(a, b, c); });
-    } else if (n === 3 && a != null && a['@@functional/placeholder'] === true &&
-                          c != null && c['@@functional/placeholder'] === true) {
-      return _curry2(function(a, c) { return fn(a, b, c); });
-    } else if (n === 3 && b != null && b['@@functional/placeholder'] === true &&
-                          c != null && c['@@functional/placeholder'] === true) {
-      return _curry2(function(b, c) { return fn(a, b, c); });
-    } else if (n === 3 && a != null && a['@@functional/placeholder'] === true) {
-      return _curry1(function(a) { return fn(a, b, c); });
-    } else if (n === 3 && b != null && b['@@functional/placeholder'] === true) {
-      return _curry1(function(b) { return fn(a, b, c); });
-    } else if (n === 3 && c != null && c['@@functional/placeholder'] === true) {
-      return _curry1(function(c) { return fn(a, b, c); });
-    } else {
-      return fn(a, b, c);
+    switch (arguments.length) {
+      case 0:
+        return f3;
+      case 1:
+        return _isPlaceholder(a) ? f3
+             : _curry2(function(_b, _c) { return fn(a, _b, _c); });
+      case 2:
+        return _isPlaceholder(a) && _isPlaceholder(b) ? f3
+             : _isPlaceholder(a) ? _curry2(function(_a, _c) { return fn(_a, b, _c); })
+             : _isPlaceholder(b) ? _curry2(function(_b, _c) { return fn(a, _b, _c); })
+             : _curry1(function(_c) { return fn(a, b, _c); });
+      default:
+        return _isPlaceholder(a) && _isPlaceholder(b) && _isPlaceholder(c) ? f3
+             : _isPlaceholder(a) && _isPlaceholder(b) ? _curry2(function(_a, _b) { return fn(_a, _b, c); })
+             : _isPlaceholder(a) && _isPlaceholder(c) ? _curry2(function(_a, _c) { return fn(_a, b, _c); })
+             : _isPlaceholder(b) && _isPlaceholder(c) ? _curry2(function(_b, _c) { return fn(a, _b, _c); })
+             : _isPlaceholder(a) ? _curry1(function(_a) { return fn(_a, b, c); })
+             : _isPlaceholder(b) ? _curry1(function(_b) { return fn(a, _b, c); })
+             : _isPlaceholder(c) ? _curry1(function(_c) { return fn(a, b, _c); })
+             : fn(a, b, c);
     }
   };
 };
 
-},{"./_curry1":25,"./_curry2":26}],28:[function(require,module,exports){
+},{"./_curry1":23,"./_curry2":24,"./_isPlaceholder":35}],26:[function(require,module,exports){
 var _arity = require('./_arity');
+var _isPlaceholder = require('./_isPlaceholder');
 
 
 /**
@@ -970,8 +944,9 @@ var _arity = require('./_arity');
  * @private
  * @category Function
  * @param {Number} length The arity of the curried function.
- * @return {array} An array of arguments received thus far.
+ * @param {Array} received An array of arguments received thus far.
  * @param {Function} fn The function to curry.
+ * @return {Function} The curried function.
  */
 module.exports = function _curryN(length, received, fn) {
   return function() {
@@ -982,8 +957,7 @@ module.exports = function _curryN(length, received, fn) {
     while (combinedIdx < received.length || argsIdx < arguments.length) {
       var result;
       if (combinedIdx < received.length &&
-          (received[combinedIdx] == null ||
-           received[combinedIdx]['@@functional/placeholder'] !== true ||
+          (!_isPlaceholder(received[combinedIdx]) ||
            argsIdx >= arguments.length)) {
         result = received[combinedIdx];
       } else {
@@ -991,16 +965,17 @@ module.exports = function _curryN(length, received, fn) {
         argsIdx += 1;
       }
       combined[combinedIdx] = result;
-      if (result == null || result['@@functional/placeholder'] !== true) {
+      if (!_isPlaceholder(result)) {
         left -= 1;
       }
       combinedIdx += 1;
     }
-    return left <= 0 ? fn.apply(this, combined) : _arity(left, _curryN(length, combined, fn));
+    return left <= 0 ? fn.apply(this, combined)
+                     : _arity(left, _curryN(length, combined, fn));
   };
 };
 
-},{"./_arity":18}],29:[function(require,module,exports){
+},{"./_arity":16,"./_isPlaceholder":35}],27:[function(require,module,exports){
 var _isArray = require('./_isArray');
 var _isTransformer = require('./_isTransformer');
 var _slice = require('./_slice');
@@ -1009,7 +984,7 @@ var _slice = require('./_slice');
 /**
  * Returns a function that dispatches with different strategies based on the
  * object in list position (last argument). If it is an array, executes [fn].
- * Otherwise, if it has a  function with [methodname], it will execute that
+ * Otherwise, if it has a function with [methodname], it will execute that
  * function (functor case). Otherwise, if it is a transformer, uses transducer
  * [xf] to return a new transformer (transducer case). Otherwise, it will
  * default to executing [fn].
@@ -1041,7 +1016,7 @@ module.exports = function _dispatchable(methodname, xf, fn) {
   };
 };
 
-},{"./_isArray":35,"./_isTransformer":37,"./_slice":42}],30:[function(require,module,exports){
+},{"./_isArray":33,"./_isTransformer":37,"./_slice":42}],28:[function(require,module,exports){
 var _arrayFromIterator = require('./_arrayFromIterator');
 var _has = require('./_has');
 var identical = require('../identical');
@@ -1081,6 +1056,11 @@ module.exports = function _equals(a, b, stackA, stackB) {
       break;
     case 'Date':
       if (!identical(a.valueOf(), b.valueOf())) {
+        return false;
+      }
+      break;
+    case 'Error':
+      if (!(a.name === b.name && a.message === b.message)) {
         return false;
       }
       break;
@@ -1145,9 +1125,12 @@ module.exports = function _equals(a, b, stackA, stackB) {
   return true;
 };
 
-},{"../identical":16,"../keys":51,"../type":66,"./_arrayFromIterator":19,"./_has":32}],31:[function(require,module,exports){
+},{"../identical":14,"../keys":51,"../type":65,"./_arrayFromIterator":17,"./_has":30}],29:[function(require,module,exports){
 module.exports = function _filter(fn, list) {
-  var idx = 0, len = list.length, result = [];
+  var idx = 0;
+  var len = list.length;
+  var result = [];
+
   while (idx < len) {
     if (fn(list[idx])) {
       result[result.length] = list[idx];
@@ -1157,22 +1140,66 @@ module.exports = function _filter(fn, list) {
   return result;
 };
 
-},{}],32:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports = function _has(prop, obj) {
   return Object.prototype.hasOwnProperty.call(obj, prop);
 };
 
-},{}],33:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports = function _identity(x) { return x; };
 
-},{}],34:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 var equals = require('../equals');
 
 
-module.exports = function _indexOf(list, item, from) {
-  var idx = from;
+module.exports = function _indexOf(list, a, idx) {
+  var inf, item;
+  // Array.prototype.indexOf doesn't exist below IE9
+  if (typeof list.indexOf === 'function') {
+    switch (typeof a) {
+      case 'number':
+        if (a === 0) {
+          // manually crawl the list to distinguish between +0 and -0
+          inf = 1 / a;
+          while (idx < list.length) {
+            item = list[idx];
+            if (item === 0 && 1 / item === inf) {
+              return idx;
+            }
+            idx += 1;
+          }
+          return -1;
+        } else if (a !== a) {
+          // NaN
+          while (idx < list.length) {
+            item = list[idx];
+            if (typeof item === 'number' && item !== item) {
+              return idx;
+            }
+            idx += 1;
+          }
+          return -1;
+        }
+        // non-zero numbers can utilise Set
+        return list.indexOf(a, idx);
+
+      // all these types can utilise Set
+      case 'string':
+      case 'boolean':
+      case 'function':
+      case 'undefined':
+        return list.indexOf(a, idx);
+
+      case 'object':
+        if (a === null) {
+          // null can utilise Set
+          return list.indexOf(a, idx);
+        }
+    }
+  }
+  // anything else not covered above, defer to R.equals
   while (idx < list.length) {
-    if (equals(list[idx], item)) {
+    if (equals(list[idx], a)) {
       return idx;
     }
     idx += 1;
@@ -1180,7 +1207,7 @@ module.exports = function _indexOf(list, item, from) {
   return -1;
 };
 
-},{"../equals":12}],35:[function(require,module,exports){
+},{"../equals":10}],33:[function(require,module,exports){
 /**
  * Tests whether or not an object is an array.
  *
@@ -1197,6 +1224,18 @@ module.exports = Array.isArray || function _isArray(val) {
   return (val != null &&
           val.length >= 0 &&
           Object.prototype.toString.call(val) === '[object Array]');
+};
+
+},{}],34:[function(require,module,exports){
+module.exports = function _isObject(x) {
+  return Object.prototype.toString.call(x) === '[object Object]';
+};
+
+},{}],35:[function(require,module,exports){
+module.exports = function _isPlaceholder(a) {
+  return a != null &&
+         typeof a === 'object' &&
+         a['@@functional/placeholder'] === true;
 };
 
 },{}],36:[function(require,module,exports){
@@ -1251,7 +1290,8 @@ var isArrayLike = require('../isArrayLike');
 
 module.exports = (function() {
   function _arrayReduce(xf, acc, list) {
-    var idx = 0, len = list.length;
+    var idx = 0;
+    var len = list.length;
     while (idx < len) {
       acc = xf['@@transducer/step'](acc, list[idx]);
       if (acc && acc['@@transducer/reduced']) {
@@ -1299,9 +1339,9 @@ module.exports = (function() {
     }
     throw new TypeError('reduce: list must be array or iterable');
   };
-})();
+}());
 
-},{"../bind":4,"../isArrayLike":49,"./_xwrap":48}],42:[function(require,module,exports){
+},{"../bind":3,"../isArrayLike":49,"./_xwrap":48}],42:[function(require,module,exports){
 /**
  * An optimized, private array `slice` implementation.
  *
@@ -1397,14 +1437,17 @@ module.exports = function _toString(x, seen) {
     case '[object Undefined]':
       return 'undefined';
     default:
-      return (typeof x.constructor === 'function' && x.constructor.name !== 'Object' &&
-              typeof x.toString === 'function' && x.toString() !== '[object Object]') ?
-             x.toString() :  // Function, RegExp, user-defined types
-             '{' + mapPairs(x, keys(x)).join(', ') + '}';
+      if (typeof x.toString === 'function') {
+        var repr = x.toString();
+        if (repr !== '[object Object]') {
+          return repr;
+        }
+      }
+      return '{' + mapPairs(x, keys(x)).join(', ') + '}';
   }
 };
 
-},{"../keys":51,"../reject":61,"./_contains":24,"./_map":38,"./_quote":40,"./_toISOString":43}],45:[function(require,module,exports){
+},{"../keys":51,"../reject":60,"./_contains":22,"./_map":38,"./_quote":40,"./_toISOString":43}],45:[function(require,module,exports){
 module.exports = {
   init: function() {
     return this.xf['@@transducer/init']();
@@ -1431,9 +1474,9 @@ module.exports = (function() {
   };
 
   return _curry2(function _xfilter(f, xf) { return new XFilter(f, xf); });
-})();
+}());
 
-},{"./_curry2":26,"./_xfBase":45}],47:[function(require,module,exports){
+},{"./_curry2":24,"./_xfBase":45}],47:[function(require,module,exports){
 var _curry2 = require('./_curry2');
 var _xfBase = require('./_xfBase');
 
@@ -1450,9 +1493,9 @@ module.exports = (function() {
   };
 
   return _curry2(function _xmap(f, xf) { return new XMap(f, xf); });
-})();
+}());
 
-},{"./_curry2":26,"./_xfBase":45}],48:[function(require,module,exports){
+},{"./_curry2":24,"./_xfBase":45}],48:[function(require,module,exports){
 module.exports = (function() {
   function XWrap(fn) {
     this.f = fn;
@@ -1505,7 +1548,7 @@ module.exports = _curry1(function isArrayLike(x) {
   return false;
 });
 
-},{"./internal/_curry1":25,"./internal/_isArray":35}],50:[function(require,module,exports){
+},{"./internal/_curry1":23,"./internal/_isArray":33}],50:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 
 
@@ -1528,16 +1571,16 @@ var _curry1 = require('./internal/_curry1');
  */
 module.exports = _curry1(function isNil(x) { return x == null; });
 
-},{"./internal/_curry1":25}],51:[function(require,module,exports){
+},{"./internal/_curry1":23}],51:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 var _has = require('./internal/_has');
 
 
 /**
- * Returns a list containing the names of all the enumerable own
- * properties of the supplied object.
- * Note that the order of the output array is not guaranteed to be
- * consistent across different JS platforms.
+ * Returns a list containing the names of all the enumerable own properties of
+ * the supplied object.
+ * Note that the order of the output array is not guaranteed to be consistent
+ * across different JS platforms.
  *
  * @func
  * @memberOf R
@@ -1575,7 +1618,8 @@ module.exports = (function() {
       if (Object(obj) !== obj) {
         return [];
       }
-      var prop, ks = [], nIdx;
+      var prop, nIdx;
+      var ks = [];
       for (prop in obj) {
         if (_has(prop, obj)) {
           ks[ks.length] = prop;
@@ -1595,23 +1639,23 @@ module.exports = (function() {
     });
 }());
 
-},{"./internal/_curry1":25,"./internal/_has":32}],52:[function(require,module,exports){
+},{"./internal/_curry1":23,"./internal/_has":30}],52:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 var liftN = require('./liftN');
 
 
 /**
- * "lifts" a function of arity > 1 so that it may "map over" an Array or
- * other Functor.
+ * "lifts" a function of arity > 1 so that it may "map over" an Array or other
+ * object that satisfies the [FantasyLand Apply spec](https://github.com/fantasyland/fantasy-land#apply).
  *
  * @func
  * @memberOf R
  * @since v0.7.0
- * @see R.liftN
  * @category Function
  * @sig (*... -> *) -> ([*]... -> [*])
  * @param {Function} fn The function to lift into higher context
- * @return {Function} The function `fn` applicable to mappable objects.
+ * @return {Function} The lifted function.
+ * @see R.liftN
  * @example
  *
  *      var madd3 = R.lift(R.curry((a, b, c) => a + b + c));
@@ -1626,7 +1670,7 @@ module.exports = _curry1(function lift(fn) {
   return liftN(fn.length, fn);
 });
 
-},{"./internal/_curry1":25,"./liftN":53}],53:[function(require,module,exports){
+},{"./internal/_curry1":23,"./liftN":53}],53:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 var _reduce = require('./internal/_reduce');
 var _slice = require('./internal/_slice');
@@ -1636,20 +1680,20 @@ var map = require('./map');
 
 
 /**
- * "lifts" a function to be the specified arity, so that it may "map over" that many
- * lists (or other Functors).
+ * "lifts" a function to be the specified arity, so that it may "map over" that
+ * many lists (or other objects that satisfies the [FantasyLand Apply spec](https://github.com/fantasyland/fantasy-land#apply)).
  *
  * @func
  * @memberOf R
  * @since v0.7.0
- * @see R.lift
  * @category Function
  * @sig Number -> (*... -> *) -> ([*]... -> [*])
  * @param {Function} fn The function to lift into higher context
- * @return {Function} The function `fn` applicable to mappable objects.
+ * @return {Function} The lifted function.
+ * @see R.lift
  * @example
  *
- *      var madd3 = R.liftN(3, R.curryN(3, () => R.reduce(R.add, 0, arguments)));
+ *      var madd3 = R.liftN(3, R.curryN(3, (...args) => R.sum(args)));
  *      madd3([1,2,3], [1,2,3], [1]); //=> [3, 4, 5, 4, 5, 6, 5, 6, 7]
  */
 module.exports = _curry2(function liftN(arity, fn) {
@@ -1659,13 +1703,13 @@ module.exports = _curry2(function liftN(arity, fn) {
   });
 });
 
-},{"./ap":3,"./curryN":9,"./internal/_curry2":26,"./internal/_reduce":41,"./internal/_slice":42,"./map":56}],54:[function(require,module,exports){
+},{"./ap":2,"./curryN":7,"./internal/_curry2":24,"./internal/_reduce":41,"./internal/_slice":42,"./map":56}],54:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
 /**
- * Returns `true` if the first argument is less than the second;
- * `false` otherwise.
+ * Returns `true` if the first argument is less than the second; `false`
+ * otherwise.
  *
  * @func
  * @memberOf R
@@ -1686,7 +1730,7 @@ var _curry2 = require('./internal/_curry2');
  */
 module.exports = _curry2(function lt(a, b) { return a < b; });
 
-},{"./internal/_curry2":26}],55:[function(require,module,exports){
+},{"./internal/_curry2":24}],55:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
@@ -1713,7 +1757,7 @@ var _curry2 = require('./internal/_curry2');
  */
 module.exports = _curry2(function lte(a, b) { return a <= b; });
 
-},{"./internal/_curry2":26}],56:[function(require,module,exports){
+},{"./internal/_curry2":24}],56:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 var _dispatchable = require('./internal/_dispatchable');
 var _map = require('./internal/_map');
@@ -1724,19 +1768,19 @@ var keys = require('./keys');
 
 
 /**
- * Returns a new list, constructed by applying the supplied function to every element of the
- * supplied list.
+ * Takes a function and
+ * a [functor](https://github.com/fantasyland/fantasy-land#functor),
+ * applies the function to each of the functor's values, and returns
+ * a functor of the same shape.
  *
- * Note: `R.map` does not skip deleted or unassigned indices (sparse arrays), unlike the
- * native `Array.prototype.map` method. For more details on this behavior, see:
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map#Description
+ * Ramda provides suitable `map` implementations for `Array` and `Object`,
+ * so this function may be applied to `[1, 2, 3]` or `{x: 1, y: 2, z: 3}`.
  *
  * Dispatches to the `map` method of the second argument, if present.
  *
  * Acts as a transducer if a transformer is given in list position.
- * @see R.transduce
  *
- * Map treats also treats functions as functors and will compose them together.
+ * Also treats functions as functors and will compose them together.
  *
  * @func
  * @memberOf R
@@ -1746,6 +1790,7 @@ var keys = require('./keys');
  * @param {Function} fn The function to be called on every element of the input `list`.
  * @param {Array} list The list to be iterated over.
  * @return {Array} The new list.
+ * @see R.transduce, R.addIndex
  * @example
  *
  *      var double = x => x * 2;
@@ -1770,7 +1815,7 @@ module.exports = _curry2(_dispatchable('map', _xmap, function map(fn, functor) {
   }
 }));
 
-},{"./curryN":9,"./internal/_curry2":26,"./internal/_dispatchable":29,"./internal/_map":38,"./internal/_reduce":41,"./internal/_xmap":47,"./keys":51}],57:[function(require,module,exports){
+},{"./curryN":7,"./internal/_curry2":24,"./internal/_dispatchable":27,"./internal/_map":38,"./internal/_reduce":41,"./internal/_xmap":47,"./keys":51}],57:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 
 
@@ -1797,35 +1842,7 @@ module.exports = _curry1(function not(a) {
   return !a;
 });
 
-},{"./internal/_curry1":25}],58:[function(require,module,exports){
-var _curry2 = require('./internal/_curry2');
-
-
-/**
- * Returns `true` if one or both of its arguments are `true`. Returns `false`
- * if both arguments are `false`.
- *
- * @func
- * @memberOf R
- * @since v0.1.0
- * @category Logic
- * @sig * -> * -> *
- * @param {Boolean} a A boolean value
- * @param {Boolean} b A boolean value
- * @return {Boolean} `true` if one or both arguments are `true`, `false` otherwise
- * @see R.either
- * @example
- *
- *      R.or(true, true); //=> true
- *      R.or(true, false); //=> true
- *      R.or(false, true); //=> true
- *      R.or(false, false); //=> false
- */
-module.exports = _curry2(function or(a, b) {
-  return a || b;
-});
-
-},{"./internal/_curry2":26}],59:[function(require,module,exports){
+},{"./internal/_curry1":23}],58:[function(require,module,exports){
 var _arity = require('./internal/_arity');
 var _pipe = require('./internal/_pipe');
 var reduce = require('./reduce');
@@ -1860,23 +1877,23 @@ module.exports = function pipe() {
                 reduce(_pipe, arguments[0], tail(arguments)));
 };
 
-},{"./internal/_arity":18,"./internal/_pipe":39,"./reduce":60,"./tail":63}],60:[function(require,module,exports){
+},{"./internal/_arity":16,"./internal/_pipe":39,"./reduce":59,"./tail":62}],59:[function(require,module,exports){
 var _curry3 = require('./internal/_curry3');
 var _reduce = require('./internal/_reduce');
 
 
 /**
- * Returns a single item by iterating through the list, successively calling the iterator
- * function and passing it an accumulator value and the current value from the array, and
- * then passing the result to the next call.
+ * Returns a single item by iterating through the list, successively calling
+ * the iterator function and passing it an accumulator value and the current
+ * value from the array, and then passing the result to the next call.
  *
- * The iterator function receives two values: *(acc, value)*.  It may use `R.reduced` to
- * shortcut the iteration.
+ * The iterator function receives two values: *(acc, value)*. It may use
+ * `R.reduced` to shortcut the iteration.
  *
- * Note: `R.reduce` does not skip deleted or unassigned indices (sparse arrays), unlike
- * the native `Array.prototype.reduce` method. For more details on this behavior, see:
+ * Note: `R.reduce` does not skip deleted or unassigned indices (sparse
+ * arrays), unlike the native `Array.prototype.reduce` method. For more details
+ * on this behavior, see:
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce#Description
- * @see R.reduced
  *
  * Dispatches to the `reduce` method of the third argument, if present.
  *
@@ -1884,12 +1901,13 @@ var _reduce = require('./internal/_reduce');
  * @memberOf R
  * @since v0.1.0
  * @category List
- * @sig (a,b -> a) -> a -> [b] -> a
+ * @sig ((a, b) -> a) -> a -> [b] -> a
  * @param {Function} fn The iterator function. Receives two values, the accumulator and the
  *        current element from the array.
  * @param {*} acc The accumulator value.
  * @param {Array} list The list to iterate over.
  * @return {*} The final, accumulated value.
+ * @see R.reduced, R.addIndex
  * @example
  *
  *      var numbers = [1, 2, 3];
@@ -1899,39 +1917,39 @@ var _reduce = require('./internal/_reduce');
  */
 module.exports = _curry3(_reduce);
 
-},{"./internal/_curry3":27,"./internal/_reduce":41}],61:[function(require,module,exports){
+},{"./internal/_curry3":25,"./internal/_reduce":41}],60:[function(require,module,exports){
 var _complement = require('./internal/_complement');
 var _curry2 = require('./internal/_curry2');
 var filter = require('./filter');
 
 
 /**
- * Similar to `filter`, except that it keeps only values for which the given predicate
- * function returns falsy. The predicate function is passed one argument: *(value)*.
+ * The complement of `filter`.
  *
  * Acts as a transducer if a transformer is given in list position.
- * @see R.transduce
  *
  * @func
  * @memberOf R
  * @since v0.1.0
  * @category List
- * @sig (a -> Boolean) -> [a] -> [a]
- * @param {Function} fn The function called per iteration.
- * @param {Array} list The collection to iterate over.
- * @return {Array} The new filtered array.
- * @see R.filter
+ * @sig Filterable f => (a -> Boolean) -> f a -> f a
+ * @param {Function} pred
+ * @param {Array} filterable
+ * @return {Array}
+ * @see R.filter, R.transduce, R.addIndex
  * @example
  *
  *      var isOdd = (n) => n % 2 === 1;
  *
  *      R.reject(isOdd, [1, 2, 3, 4]); //=> [2, 4]
+ *
+ *      R.reject(isOdd, {a: 1, b: 2, c: 3, d: 4}); //=> {b: 2, d: 4}
  */
-module.exports = _curry2(function reject(fn, list) {
-  return filter(_complement(fn), list);
+module.exports = _curry2(function reject(pred, filterable) {
+  return filter(_complement(pred), filterable);
 });
 
-},{"./filter":13,"./internal/_complement":22,"./internal/_curry2":26}],62:[function(require,module,exports){
+},{"./filter":11,"./internal/_complement":20,"./internal/_curry2":24}],61:[function(require,module,exports){
 var _checkForMethod = require('./internal/_checkForMethod');
 var _curry3 = require('./internal/_curry3');
 
@@ -1964,7 +1982,7 @@ module.exports = _curry3(_checkForMethod('slice', function slice(fromIndex, toIn
   return Array.prototype.slice.call(list, fromIndex, toIndex);
 }));
 
-},{"./internal/_checkForMethod":20,"./internal/_curry3":27}],63:[function(require,module,exports){
+},{"./internal/_checkForMethod":18,"./internal/_curry3":25}],62:[function(require,module,exports){
 var _checkForMethod = require('./internal/_checkForMethod');
 var slice = require('./slice');
 
@@ -1979,11 +1997,11 @@ var slice = require('./slice');
  * @memberOf R
  * @since v0.1.0
  * @category List
- * @see R.head, R.init, R.last
  * @sig [a] -> [a]
  * @sig String -> String
  * @param {*} list
  * @return {*}
+ * @see R.head, R.init, R.last
  * @example
  *
  *      R.tail([1, 2, 3]);  //=> [2, 3]
@@ -1998,7 +2016,7 @@ var slice = require('./slice');
  */
 module.exports = _checkForMethod('tail', slice(1, Infinity));
 
-},{"./internal/_checkForMethod":20,"./slice":62}],64:[function(require,module,exports){
+},{"./internal/_checkForMethod":18,"./slice":61}],63:[function(require,module,exports){
 var _cloneRegExp = require('./internal/_cloneRegExp');
 var _curry2 = require('./internal/_curry2');
 var _isRegExp = require('./internal/_isRegExp');
@@ -2011,12 +2029,12 @@ var toString = require('./toString');
  * @func
  * @memberOf R
  * @since v0.12.0
- * @see R.match
  * @category String
  * @sig RegExp -> String -> Boolean
  * @param {RegExp} pattern
  * @param {String} str
  * @return {Boolean}
+ * @see R.match
  * @example
  *
  *      R.test(/^x/, 'xyz'); //=> true
@@ -2029,7 +2047,7 @@ module.exports = _curry2(function test(pattern, str) {
   return _cloneRegExp(pattern).test(str);
 });
 
-},{"./internal/_cloneRegExp":21,"./internal/_curry2":26,"./internal/_isRegExp":36,"./toString":65}],65:[function(require,module,exports){
+},{"./internal/_cloneRegExp":19,"./internal/_curry2":24,"./internal/_isRegExp":36,"./toString":64}],64:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 var _toString = require('./internal/_toString');
 
@@ -2072,14 +2090,15 @@ var _toString = require('./internal/_toString');
  */
 module.exports = _curry1(function toString(val) { return _toString(val, []); });
 
-},{"./internal/_curry1":25,"./internal/_toString":44}],66:[function(require,module,exports){
+},{"./internal/_curry1":23,"./internal/_toString":44}],65:[function(require,module,exports){
 var _curry1 = require('./internal/_curry1');
 
 
 /**
- * Gives a single-word string description of the (native) type of a value, returning such
- * answers as 'Object', 'Number', 'Array', or 'Null'.  Does not attempt to distinguish user
- * Object types any further, reporting them all as 'Object'.
+ * Gives a single-word string description of the (native) type of a value,
+ * returning such answers as 'Object', 'Number', 'Array', or 'Null'. Does not
+ * attempt to distinguish user Object types any further, reporting them all as
+ * 'Object'.
  *
  * @func
  * @memberOf R
@@ -2104,23 +2123,23 @@ module.exports = _curry1(function type(val) {
          Object.prototype.toString.call(val).slice(8, -1);
 });
 
-},{"./internal/_curry1":25}],67:[function(require,module,exports){
-var _arity = require('./internal/_arity');
+},{"./internal/_curry1":23}],66:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 var _slice = require('./internal/_slice');
-var curry = require('./curry');
+var curryN = require('./curryN');
 
 
 /**
- * Accepts a function `fn` and a list of transformer functions and returns a new curried
- * function. When the new function is invoked, it calls the function `fn` with parameters
- * consisting of the result of calling each supplied handler on successive arguments to the
- * new function.
+ * Accepts a function `fn` and a list of transformer functions and returns a
+ * new curried function. When the new function is invoked, it calls the
+ * function `fn` with parameters consisting of the result of calling each
+ * supplied handler on successive arguments to the new function.
  *
- * If more arguments are passed to the returned function than transformer functions, those
- * arguments are passed directly to `fn` as additional parameters. If you expect additional
- * arguments that don't need to be transformed, although you can ignore them, it's best to
- * pass an identity function so that the new function reports the correct arity.
+ * If more arguments are passed to the returned function than transformer
+ * functions, those arguments are passed directly to `fn` as additional
+ * parameters. If you expect additional arguments that don't need to be
+ * transformed, although you can ignore them, it's best to pass an identity
+ * function so that the new function reports the correct arity.
  *
  * @func
  * @memberOf R
@@ -2138,15 +2157,16 @@ var curry = require('./curry');
  *      R.useWith(Math.pow, [R.dec, R.inc])(3)(4); //=> 32
  */
 module.exports = _curry2(function useWith(fn, transformers) {
-  return curry(_arity(transformers.length, function() {
-    var args = [], idx = 0;
+  return curryN(transformers.length, function() {
+    var args = [];
+    var idx = 0;
     while (idx < transformers.length) {
       args.push(transformers[idx].call(this, arguments[idx]));
       idx += 1;
     }
     return fn.apply(this, args.concat(_slice(arguments, transformers.length)));
-  }));
+  });
 });
 
-},{"./curry":8,"./internal/_arity":18,"./internal/_curry2":26,"./internal/_slice":42}]},{},[1])(1)
+},{"./curryN":7,"./internal/_curry2":24,"./internal/_slice":42}]},{},[1])(1)
 });
