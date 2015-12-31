@@ -72,25 +72,31 @@ function FK (...args) {
   const wrap0 = (...f) => () => pipeline(...f);
 
   return {
-    value: _value,
     $: _value,
-    extract: () => _value,
 
     // fantasyland?
-    of: FK,                       // Applicative
-    map: f => FK(f(_value)),      // Functor
-    ap: b => FK(_value(b.value)), // Apply
-    chain: f => f(_value),        // Chain
+    value: _value,
+    of: x => FK(_ => x),                          // Applicative
+    map: fn => {                                  // Functor
+      let p = prop(fn);
+      return FK(x => p(_value(x)));
+    },
+    ap: fk => FK(x => _value(x)(fk.value(x))),    // Apply
+    chain: fn => FK(x => fn(_value(x)).value(x)), // Chain
+    extract: () => _value,                        // Comonad
     // extend: f => FK(f(_value)),
 
     // composition
-    andThen: f => FK(pipe(_value, prop(f))),
-    compose: b => FK(pipe(prop(b), _value)),
+    // andThen: f => FK(pipe(_value, prop(f))),  // same as map
+    compose: fn => {
+      let p = prop(fn);
+      return FK(x => _value(p(x)));
+    },
 
     isFK: true,
 
     // values
-    get: wrap(defaultTo),
+    orElse: wrap(defaultTo),
 
     satisfies: pipeline,
     eq: wrap(equals),
@@ -117,6 +123,8 @@ function FK (...args) {
     between: (a, b) => both(pipe(_value, lt(a)), pipe(_value, gt(b)))
   };
 }
+
+FK.of = x => FK(_ => x);
 
 export {
   FK as keys,

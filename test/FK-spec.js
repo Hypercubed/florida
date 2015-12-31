@@ -61,50 +61,6 @@ const place = {
   }
 };
 
-test('map?', function (t) {
-  var location = FK('location');
-  var number = FK('number');
-  var value = location.map(number.compose).$(place);
-
-  t.equal(value, 1600);
-  t.end();
-});
-
-test('ap?', function (t) {
-  var location = FK('location');
-  var number = FK('number');
-  var value = FK(number.compose).ap(location).$(place);
-
-  t.equal(value, 1600);
-  t.end();
-});
-
-test('chain?', function (t) {
-  var f = FK('location.number');
-  var value = f.chain(f => f(place));
-
-  t.equal(value, 1600);
-  t.end();
-});
-
-test('andThen', function (t) {
-  var location = FK('location');
-  var number = FK('number');
-  var value = location.andThen(number).$(place);
-
-  t.equal(value, 1600);
-  t.end();
-});
-
-test('compose', function (t) {
-  var location = FK('location');
-  var number = FK('number');
-  var value = number.compose(location).$(place);
-
-  t.equal(value, 1600);
-  t.end();
-});
-
 var calender = [{ event: { date: { year: 1990 } } }];
 
 const newDate = (d) => {
@@ -166,6 +122,28 @@ test('FK', (t) => {
     });
   });
 
+  t.test('implement the Functor specification, #of', (t) => {
+    t.test('should implement of method', (t) => {
+      var a = FK();
+      t.equal(typeof a.of, 'function', 'A value which has a Applicative must provide a of method.');
+      t.end();
+    });
+
+    t.test('constructs a getter that always produces the same value', function (t) {
+      var of = FK().of(123);
+      var value = of.$(place);
+
+      t.equal(value, 123);
+      t.end();
+    });
+
+    t.test('can store accessor functions', (t) => {
+      var id = FK().of(R.identity);
+      t.equal(id.$()(123), 123);
+      t.end();
+    });
+  });
+
   t.test('implement the Functor specification, #map', (t) => {
     t.test('should implement map method', (t) => {
       var f = FK();
@@ -173,18 +151,37 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should compose accessor function', (t) => {
-      var f = FK('year').andThen(String);
-      t.equal(f.$(data[0]), '1977');
+    t.test('should work with accessor functions', (t) => {
+      var location = FK('location');
+      var value = location.map(d => d.number).$(place);
+
+      t.equal(value, 1600);
       t.end();
     });
 
-    /* t.test('should work with deep nested data', (t) => {
+    test('should work with FK objects', function (t) {  // constructs a new getter composed of the existing getter and the function provided to map
+      var location = FK('location');
+      var number = FK('number');
+      var value = location.map(number).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    test('should work with keys', function (t) {  // constructs a new getter composed of the existing getter and the function provided to map
+      var location = FK('location');
+      var value = location.map('number').$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.test('should work with deep nested data', (t) => {
       var data = calender[0];
       var f = FK('event').map('date').map('year');
       t.equal(f.$(data), 1990);
       t.end();
-    }); */
+    });
 
     t.test('identity', (t) => {
       var data = calender[0];
@@ -210,79 +207,72 @@ test('FK', (t) => {
 
   t.test('implement the Apply specification, #ap', (t) => {
     t.test('should implement ap method', (t) => {
-      var data = calender[0].event;
-      var a = FK('date');
-      var b = FK('year');
+      var a = FK();
       t.equal(typeof a.ap, 'function', 'A value which has a Apply must provide a ap method.');
-      // t.equal(b.ap(a).$(data), 1990);
       t.end();
     });
 
-    /* t.test('should compose accessor function', (t) => {
-      var f = FK('year');
-      t.deepEqual(f.ap(data)[0], 1977);
-      t.deepEqual(f.ap(data), data.map(f.$));
-      t.end();
-    }); */
+    test('can be used for piping a value through two separate FK functions', function (t) {
+      var fn = FK('foo').map(R.add).ap(FK('bar'));
+      var value = fn.$({
+        foo: 1,
+        bar: 2
+      });
 
-    /* t.test('composition', (t) => {
-      var data = { event: { year: 1990 } };
-      var v = [data];
+      t.equal(value, 3);
+      t.end();
+    });
+
+    t.test('identity', (t) => {
+      var data = { year: 1990 };
       var a = FK('year');
-      var u = FK('event');
 
-      t.deepEqual(a.ap(u.ap(v)), [1990]);
-      t.deepEqual(a.map(f => g => x => f(g(x))).ap(u).ap(v), [1990]);
-      t.end();
-    }); */
-  });
-
-  t.test('implement the Applicative specification, #of', (t) => {
-    t.test('should implement of method', (t) => {
-      var a = FK();
-      t.equal(typeof a.ap, 'function', 'A value which has a Applicative must provide a of method.');
+      t.equal(FK().of(x => x).ap(a).$(data), 1990);
       t.end();
     });
 
-    t.test('should compose accessor function', (t) => {
-      var f = FK().of(FK.$identity);
-      t.equal(typeof f, 'object');
-      // t.ok(f instanceof FK);
-      t.equal(typeof f.$, 'function');
+    t.test('homomorphism', (t) => {
+      var f = d => d.year;
+      var x = { year: 1990 };
+      var a = FK();
+
+      t.equal(a.of(f(x)).$(), 1990);
+      t.equal(a.of(f).ap(a.of(x)).$(), 1990);
       t.end();
     });
 
-    /* t.test('identity', (t) => {
+    /* t.test('interchange', (t) => {
+      var f = d => d.year;
+      var y = { year: 1990 };
       var a = FK();
-      t.deepEqual(a.of(FK.$identity).ap([123]), [123]);
-      t.end();
-    }); */
+      var u = FK('year');
 
-    /* t.test('homomorphism', (t) => {
-      var data = { date: { year: 1990 } };
-
-      var a = FK();
-      var f = _ => 'date.' + _;
-      var x = 'year';
-
-      // console.log(a.of(f(x)).$(data));
-      // process.exit();
-      t.equal(a.of(f(x)).$(data), 1990);
-      t.equal(a.of(f).ap(a.of(x)).$(data), 1990);
+      t.equal(u.ap(a.of(f)), 1990);
       t.end();
     }); */
   });
 
   t.test('implement the Chain specification, #chain', (t) => {
     t.test('should implement chain method', (t) => {
-      var data = { year: 1990 };
-      var f = _ => 1;
-      var m = FK('year');
-      var a = m.chain(f);
-
+      var m = FK();
       t.equal(typeof m.chain, 'function', 'A value which has a Chain must provide a chain method.');
-      // t.equal(typeof a, 'function', 'chain must return a value of the same Chain');
-      // t.equal(a(data), 1991);
+      t.end();
+    });
+
+    test('could be used to dynamically construct a getter function based on some other value of the received object', function (t) {
+      var fn = FK('foo').chain(x => x ? FK('bar') : FK('baz'));
+
+      t.equal(fn.$({
+        foo: true,
+        bar: 2,
+        baz: 3
+      }), 2);
+
+      t.equal(fn.$({
+        foo: false,
+        bar: 2,
+        baz: 3
+      }), 3);
 
       t.end();
     });
@@ -300,7 +290,7 @@ test('FK', (t) => {
     });
   }); */
 
-  t.test('#get', (t) => {
+  t.test('#$', (t) => {
     t.test('should return identity function', (t) => {
       var f = FK();
       t.equal(f.$(5), 5);
@@ -473,13 +463,49 @@ test('FK', (t) => {
       t.equal(FK('date.year.value').$(data), undefined);
       t.end();
     });
+  });
+
+  t.test('#orElse', (t) => {
+    t.test('should return identity function', (t) => {
+      var or10 = FK().orElse(10);
+      t.equal(or10(5), 5);
+      t.equal(or10(null), 10);
+      t.end();
+    });
 
     t.test('should return default with missing key', (t) => {
       var data = calender[0].event;
-      t.equal(FK('year').get(2000)(data), 2000);
-      t.equal(FK('date.day').get(5)(data), 5);
-      t.equal(FK('year.day').get(6)(data), 6);
-      t.equal(FK('date.year.value').get(7)(data), 7);
+      t.equal(FK('year').orElse(2000)(data), 2000);
+      t.equal(FK('date.day').orElse(5)(data), 5);
+      t.equal(FK('year.day').orElse(6)(data), 6);
+      t.equal(FK('date.year.value').orElse(7)(data), 7);
+      t.end();
+    });
+  });
+
+  t.test('#compose', (t) => {
+    t.test('should work with accessor functions', function (t) {
+      var number = FK('number');
+      var value = number.compose(d => d.location).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.test('should work with FK objects', function (t) {
+      var location = FK('location');
+      var number = FK('number');
+      var value = number.compose(location).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.test('should work with keys', function (t) {
+      var number = FK('number');
+      var value = number.compose('location').$(place);
+
+      t.equal(value, 1600);
       t.end();
     });
   });

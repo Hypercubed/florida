@@ -166,37 +166,50 @@ function FK() {
   };
 
   return {
-    value: _value,
     $: _value,
-    extract: function extract() {
-      return _value;
-    },
 
     // fantasyland?
-    of: FK, // Applicative
-    map: function map(f) {
-      return FK(f(_value));
-    }, // Functor
-    ap: function ap(b) {
-      return FK(_value(b.value));
+    value: _value,
+    of: function of(x) {
+      return FK(function (_) {
+        return x;
+      });
+    }, // Applicative
+    map: function map(fn) {
+      // Functor
+      var p = prop(fn);
+      return FK(function (x) {
+        return p(_value(x));
+      });
+    },
+    ap: function ap(fk) {
+      return FK(function (x) {
+        return _value(x)(fk.value(x));
+      });
     }, // Apply
-    chain: function chain(f) {
-      return f(_value);
+    chain: function chain(fn) {
+      return FK(function (x) {
+        return fn(_value(x)).value(x);
+      });
     }, // Chain
+    extract: function extract() {
+      return _value;
+    }, // Comonad
     // extend: f => FK(f(_value)),
 
     // composition
-    andThen: function andThen(f) {
-      return FK((0, _pipe2.default)(_value, prop(f)));
-    },
-    compose: function compose(b) {
-      return FK((0, _pipe2.default)(prop(b), _value));
+    // andThen: f => FK(pipe(_value, prop(f))),  // same as map
+    compose: function compose(fn) {
+      var p = prop(fn);
+      return FK(function (x) {
+        return _value(p(x));
+      });
     },
 
     isFK: true,
 
     // values
-    get: wrap(_defaultTo2.default),
+    orElse: wrap(_defaultTo2.default),
 
     satisfies: pipeline,
     eq: wrap(_equals2.default),
@@ -237,6 +250,12 @@ function FK() {
     }
   };
 }
+
+FK.of = function (x) {
+  return FK(function (_) {
+    return x;
+  });
+};
 
 exports.keys = FK;
 exports.and = _both3.default;
