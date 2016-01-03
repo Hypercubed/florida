@@ -1,136 +1,160 @@
 // these are exported
-import $identity from 'ramda/src/identity';
-import both from 'ramda/src/both';
-import either from 'ramda/src/either';
-import complement from 'ramda/src/complement';
+import $identity from 'ramda/src/internal/_identity';
+
+import and from 'ramda/src/both';
+import or from 'ramda/src/either';
+import not from 'ramda/src/complement';
 
 // these are internal
-import isNil from 'ramda/src/isNil';
-import pipe from 'ramda/src/pipe';
-import equals from 'ramda/src/equals';
-import identical from 'ramda/src/identical';
-import test from 'ramda/src/test';
-import lte from 'ramda/src/lte';
-import gte from 'ramda/src/gte';
-import lt from 'ramda/src/lt';
-import gt from 'ramda/src/gt';
-import type from 'ramda/src/type';
-import comparator from 'ramda/src/comparator';
-import useWith from 'ramda/src/useWith';
-import not from 'ramda/src/not';
-import defaultTo from 'ramda/src/defaultTo';
-// import compose from 'ramda/src/compose';
+import RisNil from 'ramda/src/isNil';
+import Rpipe from 'ramda/src/pipe';
+import Requals from 'ramda/src/equals';
+import Ridentical from 'ramda/src/identical';
+import Rtest from 'ramda/src/test';
+import Rlte from 'ramda/src/lte';
+import Rgte from 'ramda/src/gte';
+import Rlt from 'ramda/src/lt';
+import Rgt from 'ramda/src/gt';
+import Rtype from 'ramda/src/type';
+import Rcomparator from 'ramda/src/comparator';
+import RuseWith from 'ramda/src/useWith';
+import Rnot from 'ramda/src/not';
+import RdefaultTo from 'ramda/src/defaultTo';
+import Rcompose from 'ramda/src/compose';
 
 // constants
 const $$index = '$index';
 const $$this = '$this';
+const $$fk = '@@FK';
 
 // exported getters
 const $this = function () { return this; };
 const $index = (d, i) => i;
 
 function prop (key) {
-  if (isNil(key)) return $identity;
+  if (RisNil(key)) return $identity;
   if (typeof key === 'function') return key;
   if (key === $$index) return $index;
   if (key === $$this) return $this;
   if (typeof key === 'number') {
-    return (d) => isNil(d) ? undefined : d[key];
+    return (d) => RisNil(d) ? undefined : d[key];
   }
   if (typeof key === 'string' && key.indexOf('.') === -1) {
-    return (d) => isNil(d) ? undefined : d[key];
+    return (d) => RisNil(d) ? undefined : d[key];
   }
-  if (key.isFK) {
+  if (key.$ && key[$$fk]) {
     return key.$;
   }
 
   var chain = (Array.isArray(key)) ? key : key.split('.');
   chain = chain.map(prop);
-  return pipe.apply(null, chain);
+  return Rpipe.apply(null, chain);
 }
 
 function FK (...args) {
-  // if (this instanceof FK !== true) { return new FK(...args); }
+  const $ = arguments.length > 1 ? prop(args) : prop(args[0]);
 
-  const _value = arguments.length > 1 ? prop(args) : prop(args[0]);
+  // utilities
+  const $compose = (...f) => Rcompose($, ...f);
+  const $pipe = (...f) => Rpipe($, ...f);
+  const $wrap = f => (...v) => $pipe(f(...v));
+  const $wrap0 = (...f) => () => $pipe(...f);
 
-  /* function apply (thisArg, args) {
-    var length = args ? args.length : 0;
-    switch (length) {
-      case 0: return _value.call(thisArg);
-      case 1: return _value.call(thisArg, args[0]);
-      case 2: return _value.call(thisArg, args[0], args[1]);
-      case 3: return _value.call(thisArg, args[0], args[1], args[2]);
-    }
-    return _value.apply(thisArg, args);
-  } */
+  // fantasyland
+  // const of = FK.of;  // Applicative
+  const map = fn => FK($pipe(prop(fn)));
+  const ap = fk => FK(x => $(x)(fk.value(x)));    // Apply
+  const chain = fn => FK(x => fn($(x)).value(x)); // Chain
+  const extract = () => $;                        // Comonad
+  // const extend = fn => FK(fn(fk));
 
-  const pipeline = (...f) => pipe(_value, ...f);
+  // composition
+  const compose = fn => FK($compose(prop(fn)));
 
-  const wrap = f => (...v) => pipeline(f(...v));
+  // values
+  const orElse = $wrap(RdefaultTo);
 
-  const wrap0 = (...f) => () => pipeline(...f);
+  const satisfies = $pipe;
+  const eq = $wrap(Requals);
+  const is = $wrap(Ridentical);
+  const match = $wrap(Rtest);  // rename test?
 
-  return {
-    $: _value,
+  const gte = $wrap(Rlte); // lte = flip(gte)
+  const lte = $wrap(Rgte);  // gte = flip(lte)
+  const gt = $wrap(Rlt);  // lt = flip(gt)
+  const lt = $wrap(Rgt);  // gt = flip(lt)
+
+  const type = $wrap0(Rtype);
+  const isTypeof = _ => $pipe(Rtype, Requals(_));
+
+  const isNil = $wrap0(RisNil);
+  const exists = $wrap0(RisNil, Rnot);
+
+  // Sorting
+  const order = (_) => Rcomparator(RuseWith(_, [$, $]));
+  const asc = () => order(Rlt);
+  const desc = () => order(Rgt);
+
+  // comparator
+  const both = (a, b) => and($pipe(a), $pipe(b));
+  const either = (a, b) => or($pipe(a), $pipe(b));
+  const between = (a, b) => both(Rlt(a), Rgt(b));
+
+  return Object.freeze({
+    $,
+    [$$fk]: true,
 
     // fantasyland?
-    value: _value,
-    of: x => FK(_ => x),                          // Applicative
-    map: fn => {                                  // Functor
-      let p = prop(fn);
-      return FK(x => p(_value(x)));
-    },
-    ap: fk => FK(x => _value(x)(fk.value(x))),    // Apply
-    chain: fn => FK(x => fn(_value(x)).value(x)), // Chain
-    extract: () => _value,                        // Comonad
-    // extend: f => FK(f(_value)),
+    value: $,
+    of: FK.of,
+    map,
+    ap,
+    chain,
+    extract,
+    // extend,
 
     // composition
-    // andThen: f => FK(pipe(_value, prop(f))),  // same as map
-    compose: fn => {
-      let p = prop(fn);
-      return FK(x => _value(p(x)));
-    },
-
-    isFK: true,
+    andThen: map,
+    compose,
 
     // values
-    orElse: wrap(defaultTo),
+    orElse,
 
-    satisfies: pipeline,
-    eq: wrap(equals),
-    is: wrap(identical),
-    match: wrap(test),  // rename test?
+    satisfies,
+    eq,
+    is,
+    match,
 
-    gte: wrap(lte), // lte = flip(gte)
-    lte: wrap(gte),  // gte = flip(lte)
-    gt: wrap(lt),  // lt = flip(gt)
-    lt: wrap(gt),  // gt = flip(lt)
+    gte,
+    lte,
+    gt,
+    lt,
 
-    type: wrap0(type),
-    typeof: (_) => pipeline(type, equals(_)),
+    type,
+    typeof: isTypeof,
 
-    isNil: wrap0(isNil),
-    exists: wrap0(isNil, not),
+    isNil,
+    exists,
 
-    order: (_) => comparator(useWith(_, [_value, _value])),
-    asc: () => comparator(useWith(lt, [_value, _value])),
-    desc: () => comparator(useWith(gt, [_value, _value])),
+    order,
+    asc,
+    desc,
 
-    both: (a, b) => both(pipe(_value, a), pipe(_value, b)),
-    either: (a, b) => either(pipe(_value, a), pipe(_value, b)),
-    between: (a, b) => both(pipe(_value, lt(a)), pipe(_value, gt(b)))
-  };
+    both,
+    either,
+    between
+  });
 }
 
 FK.of = x => FK(_ => x);
+FK.and = and;
+FK.or = or;
+FK.not = not;
+
+export default FK;
 
 export {
   FK as keys,
-  both as and,
-  either as or,
-  complement as not,
   $index,
   $this,
   $identity

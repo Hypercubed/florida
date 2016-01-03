@@ -91,14 +91,14 @@ test('FK', (t) => {
       var _firstname = FK('firstname');
       var _age = FK('age');
       var _johns = _firstname.eq('John');
-      var _twenties = F.and(_age.gte(20), _age.lt(30)); // _age.gte(20).and().lt(30);
+      var _twenties = FK.and(_age.gte(20), _age.lt(30)); // _age.gte(20).and().lt(30);
 
       t.deepEqual(people.map(_firstname.$), ['John', 'John', 'Janet', 'John', 'John', 'Maurice']);  // Returns a list of first names
       t.equal(people.filter(_johns).length, 4);  // returns a list of John's
       t.equal(people.filter(_twenties).length, 4);  // returns a list of johns in their twenties
-      t.equal(people.filter(F.and(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
+      t.equal(people.filter(FK.and(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
 
-      var f = people.filter(F.and(_johns, _twenties)).sort(_age.asc()); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
+      var f = people.filter(FK.and(_johns, _twenties)).sort(_age.asc()); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
       t.equal(f.length, 2);
       t.equal(f[0].age, 22);
       t.equal(f[1].age, 29);
@@ -717,7 +717,7 @@ test('FK', (t) => {
       var F2 = function (d) {
         return d.year < newDate(1990);
       };
-      var f = F.and(F1, F2);
+      var f = FK.and(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -734,7 +734,7 @@ test('FK', (t) => {
 
       var F1 = FK('value').gt(0);
       var F2 = FK('year').lt(newDate(1990));
-      var f = F.and(F1, F2);
+      var f = FK.and(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -790,7 +790,7 @@ test('FK', (t) => {
       var F2 = function (d) {
         return d.year > newDate(1979);
       };
-      var f = F.and(FK('year').lt(newDate(1990)), F2);
+      var f = FK.and(FK('year').lt(newDate(1990)), F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -925,7 +925,7 @@ test('FK', (t) => {
       var F2 = function (d) {
         return d.year >= newDate(2000);
       };
-      var f = F.or(F1, F2);
+      var f = FK.or(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
@@ -942,7 +942,7 @@ test('FK', (t) => {
 
       var F1 = FK('value').gt(15);
       var F2 = FK('year').gt(newDate(1999));
-      var f = F.or(F1, F2);
+      var f = FK.or(F1, F2);
 
       t.equal(f(data[0]), false);
       t.equal(data.filter(f).length, 10);
