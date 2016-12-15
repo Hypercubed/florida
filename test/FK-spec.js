@@ -1,8 +1,10 @@
-import test from 'tape';
+import {test} from 'tape';
 import * as F from '../src/FK';
-const FK = F.keys;
 
 import R from 'ramda';
+import is from 'is_js';
+
+const FK = F.keys;
 
 const rows = [
   [1977, 0],      // 0
@@ -85,632 +87,112 @@ function d3_mean (array, f) {
   return j ? s / j : undefined;
 }
 
-test('FK', (t) => {
-  t.test('example', (t) => {
-    t.test('should run', (t) => {
-      var _firstname = FK('firstname');
-      var _age = FK('age');
-      var _johns = _firstname.eq('John');
-      var _twenties = FK.and(_age.gte(20), _age.lt(30)); // _age.gte(20).and().lt(30);
+test('docs', t => {
+  t.test('example', t => {
+    var _firstname = FK('firstname');
+    var _age = FK('age');
+    var _johns = _firstname.eq('John');
+    var _twenties = FK.and(_age.gte(20), _age.lt(30)); // _age.gte(20).and().lt(30);
 
-      t.deepEqual(people.map(_firstname.$), ['John', 'John', 'Janet', 'John', 'John', 'Maurice']);  // Returns a list of first names
-      t.equal(people.filter(_johns).length, 4);  // returns a list of John's
-      t.equal(people.filter(_twenties).length, 4);  // returns a list of johns in their twenties
-      t.equal(people.filter(FK.and(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
+    t.deepEqual(people.map(_firstname.$), ['John', 'John', 'Janet', 'John', 'John', 'Maurice']);  // Returns a list of first names
+    t.equal(people.filter(_johns).length, 4);  // returns a list of John's
+    t.equal(people.filter(_twenties).length, 4);  // returns a list of johns in their twenties
+    t.equal(people.filter(FK.and(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
 
-      var f = people.filter(FK.and(_johns, _twenties)).sort(_age.asc()); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
-      t.equal(f.length, 2);
-      t.equal(f[0].age, 22);
-      t.equal(f[1].age, 29);
+    var f = people.filter(FK.and(_johns, _twenties)).sort(_age.asc()); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
+    t.equal(f.length, 2);
+    t.equal(f[0].age, 22);
+    t.equal(f[1].age, 29);
 
-      t.end();
-    });
+    t.end();
   });
 
-  t.test('FK()', (t) => {
-    t.test('should be a function', (t) => {
+  t.test('works with Ramda', t => {
+    var _firstname = FK('firstname');
+    var _age = FK('age');
+    var _johns = _firstname.eq('John');
+    var _twenties = R.both(_age.satisfies(R.gte(R.__, 20)), _age.satisfies(R.lt(R.__, 30)));
+
+    t.deepEqual(people.map(_firstname.$), ['John', 'John', 'Janet', 'John', 'John', 'Maurice']);  // Returns a list of first names
+    t.equal(people.filter(_johns).length, 4);  // returns a list of John's
+    t.equal(people.filter(_twenties).length, 4);  // returns a list of johns in their twenties
+    t.equal(people.filter(R.both(_johns, _twenties)).length, 2);  // returns a list of johns in their twenties
+
+    var f = people.filter(R.both(_johns, _twenties)).sort(_age.asc()); // .sort(_age.order().asc);  // returns a list of John's in their twenties sorted by age
+    t.equal(f.length, 2);
+    t.equal(f[0].age, 22);
+    t.equal(f[1].age, 29);
+
+    t.end();
+  });
+
+  t.test('works with is_js', t => {
+    var _location = FK('location');
+    var _nameCheck = FK('name').satisfies(is.string);
+    var _numberCheck = _location.map('number').satisfies(is.number);
+    var _streetCheck = _location.map('street').satisfies(is.string);
+    var _postcodeCheck = _location.map('postcode').satisfies(is.usZipCode);
+
+    var _check = R.allPass([
+      _nameCheck,
+      _numberCheck,
+      _streetCheck,
+      _postcodeCheck
+    ]);
+
+    t.ok(_check(place));
+
+    t.notOk(_check({
+      name: 123,  // invalid name
+      location: {
+        number: 1600,
+        street: 'Pennsylvania Avenue',
+        postcode: 20006
+      }
+    }));
+
+    t.notOk(_check({
+      name: 'Whitehouse',
+      location: {
+        number: 1600,
+        street: 'Pennsylvania Avenue',
+        postcode: 200   // invalid zip
+      }
+    }));
+
+    t.notOk(_check({
+      name: 'Whitehouse',
+      location: {
+        number: '1600',    // invalid number
+        street: 'Pennsylvania Avenue',
+        postcode: 20006
+      }
+    }));
+
+    t.end();
+  });
+  t.end();
+});
+
+test('FK', t => {
+  t.test('FK factory', t => {
+    t.test('should be a function', t => {
       t.equal(typeof FK, 'function');
       t.end();
     });
 
-    t.test('should be invokable', (t) => {
-      t.equal(typeof FK(), 'object', 'can be invoked with "new"');
-      t.equal(typeof new FK(), 'object', 'can be invoked without "new"');
+    t.test('should be invokable', t => {
+      // t.equal(typeof FK(), 'object', 'can be invoked with "new"');
+      // t.equal(typeof new FK(), 'object', 'can be invoked without "new"');
       // t.ok(FK() instanceof FK);
       // t.ok(new FK() instanceof FK);
       t.end();
     });
+    t.end();
   });
 
-  t.test('implement the Functor specification, #of', (t) => {
-    t.test('should implement of method', (t) => {
-      var a = FK();
-      t.equal(typeof a.of, 'function', 'A value which has a Applicative must provide a of method.');
-      t.end();
-    });
-
-    t.test('constructs a getter that always produces the same value', function (t) {
-      var of = FK().of(123);
-      var value = of.$(place);
-
-      t.equal(value, 123);
-      t.end();
-    });
-
-    t.test('can store accessor functions', (t) => {
-      var id = FK().of(R.identity);
-      t.equal(id.$()(123), 123);
-      t.end();
-    });
-  });
-
-  t.test('implement the Functor specification, #map', (t) => {
-    t.test('should implement map method', (t) => {
-      var f = FK();
-      t.equal(typeof f.map, 'function', 'A value which has a Functor must provide a map method.');
-      t.end();
-    });
-
-    t.test('should work with accessor functions', (t) => {
-      var location = FK('location');
-      var value = location.map(d => d.number).$(place);
-
-      t.equal(value, 1600);
-      t.end();
-    });
-
-    test('should work with FK objects', function (t) {  // constructs a new getter composed of the existing getter and the function provided to map
-      var location = FK('location');
-      var number = FK('number');
-      var value = location.map(number).$(place);
-
-      t.equal(value, 1600);
-      t.end();
-    });
-
-    test('should work with keys', function (t) {  // constructs a new getter composed of the existing getter and the function provided to map
-      var location = FK('location');
-      var value = location.map('number').$(place);
-
-      t.equal(value, 1600);
-      t.end();
-    });
-
-    t.test('should work with deep nested data', (t) => {
-      var data = calender[0];
-      var f = FK('event').map('date').map('year');
-      t.equal(f.$(data), 1990);
-      t.end();
-    });
-
-    t.test('identity', (t) => {
-      var data = calender[0];
-      var f = FK('event.date.year');
-      t.equal(f.$(data), 1990);
-      t.equal(f.map(a => a).$(data[0]), f.$(data[0]));
-      t.end();
-    });
-
-    t.test('composition', (t) => {
-      var data = calender[0];
-      var g = d => 1;
-      var f = d => 2;
-      var F = FK('event');
-      var f1 = F.map(g).map(f);
-      var f2 = F.map(x => f(g(x)));
-
-      // t.deepEqual(f1.$(data), 1990);
-      t.deepEqual(f1.$(data), f2.$(data));
-      t.end();
-    });
-  });
-
-  t.test('implement the Apply specification, #ap', (t) => {
-    t.test('should implement ap method', (t) => {
-      var a = FK();
-      t.equal(typeof a.ap, 'function', 'A value which has a Apply must provide a ap method.');
-      t.end();
-    });
-
-    test('can be used for piping a value through two separate FK functions', function (t) {
-      var fn = FK('foo').map(R.add).ap(FK('bar'));
-      var value = fn.$({
-        foo: 1,
-        bar: 2
-      });
-
-      t.equal(value, 3);
-      t.end();
-    });
-
-    t.test('identity', (t) => {
-      var data = { year: 1990 };
-      var a = FK('year');
-
-      t.equal(FK().of(x => x).ap(a).$(data), 1990);
-      t.end();
-    });
-
-    t.test('homomorphism', (t) => {
-      var f = d => d.year;
-      var x = { year: 1990 };
-      var a = FK();
-
-      t.equal(a.of(f(x)).$(), 1990);
-      t.equal(a.of(f).ap(a.of(x)).$(), 1990);
-      t.end();
-    });
-
-    /* t.test('interchange', (t) => {
-      var f = d => d.year;
-      var y = { year: 1990 };
-      var a = FK();
-      var u = FK('year');
-
-      t.equal(u.ap(a.of(f)), 1990);
-      t.end();
-    }); */
-  });
-
-  t.test('implement the Chain specification, #chain', (t) => {
-    t.test('should implement chain method', (t) => {
-      var m = FK();
-      t.equal(typeof m.chain, 'function', 'A value which has a Chain must provide a chain method.');
-      t.end();
-    });
-
-    test('could be used to dynamically construct a getter function based on some other value of the received object', function (t) {
-      var fn = FK('foo').chain(x => x ? FK('bar') : FK('baz'));
-
-      t.equal(fn.$({
-        foo: true,
-        bar: 2,
-        baz: 3
-      }), 2);
-
-      t.equal(fn.$({
-        foo: false,
-        bar: 2,
-        baz: 3
-      }), 3);
-
-      t.end();
-    });
-  });
-
-  /* t.test('implement the Monad specification', (t) => {
-    t.test('should implement chain method', (t) => {
-      var m = FK();
-      var a = 'a';
-
-      console.log(m.of(a).$({a: 123}));
-
-      process.exit();
-      t.end();
-    });
-  }); */
-
-  t.test('#$', (t) => {
-    t.test('should return identity function', (t) => {
-      var f = FK();
-      t.equal(f.$(5), 5);
-      t.end();
-    });
-
-    t.test('should return identity function when passsed null', (t) => {
-      var f = FK(null);
-      t.equal(f.$(5), 5);
-      t.end();
-    });
-
-    t.test('should return an accessor function', (t) => {
-      var f = FK('year');
-      t.equal(f.$(data[0]), 1977);
-      t.end();
-    });
-
-    t.test('should compose accessor function', (t) => {
-      var f = FK(['year', String]);
-      t.equal(f.$(data[0]), '1977');
-      t.end();
-    });
-
-    t.test('should compose accessor function', (t) => {
-      var f = FK('year', String);
-      t.equal(f.$(data[0]), '1977');
-      t.end();
-    });
-
-    t.test('should return an accessor function', (t) => {
-      var f = FK(d => d.year);
-      t.equal(f.$(data[0]), 1977);
-      t.end();
-    });
-
-    t.test('should return an index accessor function', (t) => {
-      var f = FK('$index');
-
-      t.equal(data.map(f.$).length, data.length);
-      t.equal(data.map(f.$)[0], 0);
-      t.equal(data.map(f.$)[5], 5);
-      t.end();
-    });
-
-    t.test('should return an index accessor function', (t) => {
-      var f = F.$index;
-
-      t.equal(data.map(f).length, data.length);
-      t.equal(data.map(f)[0], 0);
-      t.equal(data.map(f)[5], 5);
-      t.end();
-    });
-
-    t.test('should have access to this', (t) => {
-      var f = FK(function (d) {
-        return this.name;
-      });
-
-      var _this = { name: 'thisName' };
-      t.equal(data.map(f.$, _this).length, data.length);
-
-      t.equal(data.map(f.$, _this)[0], 'thisName');
-      t.equal(data.map(f.$, _this)[5], 'thisName');
-      t.end();
-    });
-
-    t.test('should return a this accessor function', (t) => {
-      var f = FK('$this');
-
-      var _this = { name: 'thisName' };
-      t.equal(data.map(f.$, _this)[0], _this);
-      t.equal(data.map(f.$, _this)[5], _this);
-      t.end();
-    });
-
-    t.test('should return a this accessor function', (t) => {
-      var f = F.$this;
-
-      var _this = { name: 'thisName' };
-      t.equal(data.map(f, _this)[0], _this);
-      t.equal(data.map(f, _this)[5], _this);
-      t.end();
-    });
-
-    /* t.test('should work with nested data', (t) => {
-      var data = { 'date': { 'year': 1990 } };
-      var f = FK('date', FK('year'));
-      t.equal(f.get(data), data.date.year);
-      t.end();
-    }); */
-
-    t.test('should work with nested data, with chained keys', (t) => {
-      var data = calender[0].event;
-      t.equal(FK('date.year').$(data), data.date.year);
-      t.end();
-    });
-
-    t.test('should work with nested data, with chained keys in array', (t) => {
-      var data = calender[0].event;
-      t.equal(FK(['date', 'year']).$(data), 1990);
-      t.end();
-    });
-
-    t.test('should work with nested data, with chained keys in array', (t) => {
-      var data = { date: { year: 1990 } };
-      t.equal(FK('date', 'year').$(data), 1990);
-      t.end();
-    });
-
-    t.test('should work with nested data, with chained keys in array', (t) => {
-      var data = calender[0].event;
-      t.equal(FK(['date', d => d.year]).$(data), 1990);
-      t.end();
-    });
-
-    t.test('should work with deep nested data', (t) => {
-      var data = calender[0];
-      t.equal(FK('event.date.year').$(data), 1990);
-      t.end();
-    });
-
-    t.test('should work with very deep nested data', (t) => {
-      var data = { events: calender };
-      t.equal(FK(['events', 0, 'event.date.year']).$(data), 1990);
-      t.end();
-    });
-
-    t.test('should return undefined with missing key very deep nested data', (t) => {
-      var data = { events: calender };
-      t.equal(FK(['events', 1, 'event.date.year']).$(data), undefined);
-      t.end();
-    });
-
-    t.test('should return undefined with missing key very deep nested data', (t) => {
-      var data = { events: [ { event: { date: { year: 1990 } } } ] };
-      t.equal(FK('events', 1, 'event.date.year').$(data), undefined);
-      t.end();
-    });
-
-    t.test('should work with numeric keys', (t) => {
-      var _secondElement = FK(1);
-      t.equal(_secondElement.$([1978, 0]), 0);
-      t.deepEqual(_secondElement.$(rows), [1978, 0]);
-      t.equal(_secondElement.eq(rows[0])(rows), false);
-      t.equal(_secondElement.eq(rows[1])(rows), true);
-      t.end();
-    });
-
-    t.test('should work with numeric keys, including zero', (t) => {
-      var _firstElement = FK(0);
-      t.equal(_firstElement.$([1977, 0]), 1977);
-      t.deepEqual(_firstElement.$(rows), [1977, 0]);
-      t.equal(_firstElement.eq(1977)([1977, 0]), true);
-      t.equal(_firstElement.eq(0)([1977, 0]), false);
-      t.end();
-    });
-
-    t.test('should work with numeric keys, returns undefined if out of bounds', (t) => {
-      var _missingElement = FK(rows.length);
-      t.equal(_missingElement.$(rows), undefined);
-      t.end();
-    });
-
-    t.test('should return undefined with missing key', (t) => {
-      var data = calender[0].event;
-      t.equal(FK('year').$(data), undefined);
-      t.equal(FK('date.day').$(data), undefined);
-      t.equal(FK('year.day').$(data), undefined);
-      t.equal(FK('date.year.value').$(data), undefined);
-      t.end();
-    });
-  });
-
-  t.test('#orElse', (t) => {
-    t.test('should return identity function', (t) => {
-      var or10 = FK().orElse(10);
-      t.equal(or10(5), 5);
-      t.equal(or10(null), 10);
-      t.end();
-    });
-
-    t.test('should return default with missing key', (t) => {
-      var data = calender[0].event;
-      t.equal(FK('year').orElse(2000)(data), 2000);
-      t.equal(FK('date.day').orElse(5)(data), 5);
-      t.equal(FK('year.day').orElse(6)(data), 6);
-      t.equal(FK('date.year.value').orElse(7)(data), 7);
-      t.end();
-    });
-  });
-
-  t.test('#compose', (t) => {
-    t.test('should work with accessor functions', function (t) {
-      var number = FK('number');
-      var value = number.compose(d => d.location).$(place);
-
-      t.equal(value, 1600);
-      t.end();
-    });
-
-    t.test('should work with FK objects', function (t) {
-      var location = FK('location');
-      var number = FK('number');
-      var value = number.compose(location).$(place);
-
-      t.equal(value, 1600);
-      t.end();
-    });
-
-    t.test('should work with keys', function (t) {
-      var number = FK('number');
-      var value = number.compose('location').$(place);
-
-      t.equal(value, 1600);
-      t.end();
-    });
-  });
-
-  t.test('#satisfies', (t) => {
-    t.test('should work', (t) => {
-      var a = [[1, 2]];
-      var b = [[3, 4]];
-
-      var f = FK([0, 1]).satisfies(_ => _ % 2 === 0);
-      t.equal(f(a), true);
-      t.equal(f(b), true);
-      t.end();
-    });
-  });
-
-  t.test('#is', (t) => {
-    t.test('should work', (t) => {
-      var a = [[1, 2]];
-      var b = [[1, 2]];
-
-      var f = FK(0).is(a[0]);
-      t.equal(f(a), true);
-      t.equal(f(b), false);
-      t.end();
-    });
-  });
-
-  t.test('#eq', (t) => {
-    t.test('should work', (t) => {
-      var f = FK('year').eq(1977);
-
-      t.equal(f(data[0]), true);
-      t.equal(f(data[1]), false);
-      t.equal(data.filter(f).length, 1);
-      t.end();
-    });
-
-    t.test('should not interfere', (t) => {
-      var f = FK('year').eq(1977);
-
-      t.equal(f(data[0]), true);
-      t.equal(f(data[1]), false);
-      t.equal(data.filter(f).length, 1);
-      t.end();
-    });
-  });
-
-  t.test('#lt', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').lt(newDate(1990));
-
-      t.equal(f(data[0]), true);
-      t.equal(data.filter(f).length, 13);
-      t.end();
-    });
-
-    t.test('should work with $index', (t) => {
-      var F = FK('$index').lt(10);
-
-      t.equal(data.filter(F).length, 10);
-      t.equal(data.filter(F)[9], data[9]);
-      t.end();
-    });
-  });
-
-  t.test('#lte', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').lte(newDate(1989));
-
-      t.equal(f(data[0]), true);
-      t.equal(data.filter(f).length, 13);
-      t.end();
-    });
-
-    t.test('should work with $index', (t) => {
-      var F = FK('$index').lte(10);
-
-      t.equal(data.filter(F).length, 11);
-      t.equal(data.filter(F)[9], data[9]);
-      t.end();
-    });
-  });
-
-  t.test('#gt', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').gt(newDate(1979));
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 26);
-      t.end();
-    });
-
-    t.test('should work with $index', (t) => {
-      var F = FK('$index').gt(10);
-
-      t.equal(data.filter(F).length, data.length - 11);
-      t.equal(data.filter(F)[0], data[11]);
-      t.end();
-    });
-  });
-
-  t.test('#gte', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').gte(newDate('1980'));
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 26);
-      t.end();
-    });
-
-    t.test('should work with $index', (t) => {
-      var F = FK('$index').gte(10);
-
-      t.equal(data.filter(F).length, data.length - 10);
-      t.equal(data.filter(F)[0], data[10]);
-      t.end();
-    });
-  });
-
-  t.test('#between', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').between(newDate('1980'), newDate('1990'));
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 9);
-      t.end();
-    });
-
-    t.test('should work with $index', (t) => {
-      var F = FK('$index').between(10, 20);
-
-      t.equal(data.filter(F).length, 9);
-      t.equal(data.filter(F)[0], data[11]);
-      t.end();
-    });
-  });
-
-  t.test('#isNil', (t) => {
-    t.test('should work', (t) => {
-      var f = FK('year').isNil();
-
-      t.equal(f({ year: 123 }), false);
-      t.equal(f({ }), true);
-      t.equal(f({ year: null }), true);
-      t.equal(data.filter(f).length, 0);
-      t.end();
-    });
-  });
-
-  t.test('#exists', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').exists();
-
-      t.equal(f({year: 1990, value: 8.89}), true);
-      t.equal(f({value: 8.89}), false);
-      t.equal(f({year: null}), false);
-      t.equal(f({}), false);
-      t.equal(data.filter(f).length, 29);
-      t.end();
-    });
-  });
-
-  t.test('#type', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').type();
-
-      t.equal(f({year: 1990, value: 8.89}), 'Number');
-      t.equal(f({year: '1990', value: 8.89}), 'String');
-      t.equal(data.filter(f).length, 29);
-      t.end();
-    });
-  });
-
-  t.test('#typeof', (t) => {
-    t.test('should work with key', (t) => {
-      var f = FK('year').typeof('Number');
-
-      t.equal(f({year: 1990, value: 8.89}), true);
-      t.equal(f({year: '1990', value: 8.89}), false);
-      t.equal(data.filter(f).length, 29);
-      t.end();
-    });
-  });
-
-  t.test('#match', (t) => {
-    t.test('should work with regex', (t) => {
-      var f = FK('year').match(/19[89]./);
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 20);  // TODO: check
-      t.end();
-    });
-
-    t.test('should work with string', (t) => {
-      var f = FK('year').match(new RegExp('19[89].'));  // todo: fix
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 20);  // TODO: check
-      t.end();
-    });
-  });
-
-  t.test('#and', (t) => {
-    t.test('should work with simple accessor function', (t) => {
+  t.test('FK.and', t => {
+    t.test('should work with simple accessor function', t => {
       newDate.called = 0;
 
       var F1 = FK('value').gt(0);
@@ -729,7 +211,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should work with FK, new key', (t) => {
+    t.test('should work with FK, new key', t => {
       newDate.called = 0;
 
       var F1 = FK('value').gt(0);
@@ -746,7 +228,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    /* t.test('should work with identity function', (t) => {
+    /* t.test('should work with identity function', t => {
       var f = _F('year').gt(newDate(1979)).and(_F().lt(newDate(1990)));
 
       t.equal(f(data[0]), false);
@@ -757,7 +239,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('chaining should not interfere', (t) => {
+    t.test('chaining should not interfere', t => {
       var F1 = _F('year').gt(newDate(1979));
       var f = F1.and().lt(newDate(1990));
 
@@ -772,7 +254,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should be chainable, alternate form', (t) => {
+    t.test('should be chainable, alternate form', t => {
       var F1 = _F('year').gt(newDate(1979));
       var f = F1.and().lt(newDate(1990));
 
@@ -784,7 +266,7 @@ test('FK', (t) => {
       t.end();
     }); */
 
-    t.test('should be chainable with simple accessor', (t) => {
+    t.test('should be chainable with simple accessor', t => {
       newDate.called = 0;
 
       var F2 = function (d) {
@@ -801,10 +283,12 @@ test('FK', (t) => {
       t.equal(mean, 20.986);
       t.end();
     });
+
+    t.end();
   });
 
-  /* t.test('#not', (t) => {
-    t.test('should work with simple accessor function', (t) => {
+  /* t.test('#not', t => {
+    t.test('should work with simple accessor function', t => {
       newDate.called = 0;
 
       var F1 = _F('value');
@@ -823,7 +307,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should work with _F, new key', (t) => {
+    t.test('should work with _F, new key', t => {
       newDate.called = 0;
       var F1 = _F('value');
       var F2 = _F('year').lt(newDate(1990));
@@ -839,7 +323,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should work with identity function', (t) => {
+    t.test('should work with identity function', t => {
       var F1 = _F('year');
       var F2 = _F().lt(newDate(1990));
       var f = F1.not(F2);
@@ -852,7 +336,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should be chainable, alternate form', (t) => {
+    t.test('should be chainable, alternate form', t => {
       var F1 = _F('year');
       var f = F1.not().lt(newDate(1980));
 
@@ -865,60 +349,8 @@ test('FK', (t) => {
     });
   }); */
 
-  t.test('#both', (t) => {
-    t.test('should work with accessor functions', (t) => {
-      var year = FK('year');
-      var f = year.both(a => a > newDate(1979), b => b < newDate(1990));
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 10);
-
-      var mean = d3_mean(data.filter(f), d => d.value);
-      t.equal(mean, 20.986);
-      t.end();
-    });
-
-    t.test('should work with identity function', (t) => {
-      var year = FK('year');
-      var f = year.both(FK().gt(newDate(1979)), FK().lt(newDate(1990)));
-
-      t.equal(f(data[0]), false);
-      t.equal(data.filter(f).length, 10);
-
-      var mean = d3_mean(data.filter(f), d => d.value);
-      t.equal(mean, 20.986);
-      t.end();
-    });
-  });
-
-  t.test('#either', (t) => {
-    t.test('should work with accessor functions', (t) => {
-      var year = FK('year');
-      var f = year.either(a => a > newDate(1989), b => b < newDate(1980)); // gt(newDate(1989)).or(_F().lt(newDate(1980)));
-
-      t.equal(f(data[0]), true);
-      t.equal(data.filter(f).length, 19);
-
-      var mean = d3_mean(data.filter(f), d => d.value);
-      t.equal(mean, 3.845789473684211);
-      t.end();
-    });
-
-    t.test('should work with identity function', (t) => {
-      var year = FK('year');
-      var f = year.either(FK().gt(newDate(1989)), FK().lt(newDate(1980))); // gt(newDate(1989)).or(_F().lt(newDate(1980)));
-
-      t.equal(f(data[0]), true);
-      t.equal(data.filter(f).length, 19);
-
-      var mean = d3_mean(data.filter(f), d => d.value);
-      t.equal(mean, 3.845789473684211);
-      t.end();
-    });
-  });
-
-  t.test('#or', (t) => {
-    t.test('should work with simple accessor function', (t) => {
+  t.test('FK.or', t => {
+    t.test('should work with simple accessor function', t => {
       newDate.called = 0;
 
       var F1 = FK('value').gt(15);
@@ -937,7 +369,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should work with FK, new key', (t) => {
+    t.test('should work with FK, new key', t => {
       newDate.called = 0;
 
       var F1 = FK('value').gt(15);
@@ -954,7 +386,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    /* t.test('should work with identity function', (t) => {
+    /* t.test('should work with identity function', t => {
       var f = _F('year').gt(newDate(1989)).or(_F().lt(newDate(1980)));
 
       t.equal(f(data[0]), true);
@@ -965,7 +397,7 @@ test('FK', (t) => {
       t.end();
     });
 
-    t.test('should be chainable, alternate form', (t) => {
+    t.test('should be chainable, alternate form', t => {
       var f = _F('year').gt(newDate(1989)).or().lt(newDate(1980));
 
       t.equal(f(data[0]), true);
@@ -975,10 +407,687 @@ test('FK', (t) => {
       t.equal(mean, 3.845789473684211);
       t.end();
     }); */
+
+    t.end();
+  });
+});
+
+test('instanceof FK', t => {
+  t.test('#$', t => {
+    t.test('should return identity function', t => {
+      var f = FK();
+      t.equal(f.$(5), 5);
+      t.end();
+    });
+
+    t.test('should return identity function when passsed null', t => {
+      var f = FK(null);
+      t.equal(f.$(5), 5);
+      t.end();
+    });
+
+    t.test('should return an accessor function', t => {
+      var f = FK('year');
+      t.equal(f.$(data[0]), 1977);
+      t.end();
+    });
+
+    t.test('should compose accessor function', t => {
+      var f = FK(['year', String]);
+      t.equal(f.$(data[0]), '1977');
+      t.end();
+    });
+
+    t.test('should compose accessor function', t => {
+      var f = FK('year', String);
+      t.equal(f.$(data[0]), '1977');
+      t.end();
+    });
+
+    t.test('should return an accessor function', t => {
+      var f = FK(d => d.year);
+      t.equal(f.$(data[0]), 1977);
+      t.end();
+    });
+
+    t.test('should return an index accessor function', t => {
+      var f = FK('$index');
+
+      t.equal(data.map(f.$).length, data.length);
+      t.equal(data.map(f.$)[0], 0);
+      t.equal(data.map(f.$)[5], 5);
+      t.end();
+    });
+
+    t.test('should return an index accessor function', t => {
+      var f = F.$index;
+
+      t.equal(data.map(f).length, data.length);
+      t.equal(data.map(f)[0], 0);
+      t.equal(data.map(f)[5], 5);
+      t.end();
+    });
+
+    t.test('should have access to this', t => {
+      var f = FK(function (d) {
+        return this.name;
+      });
+
+      var _this = { name: 'thisName' };
+      t.equal(data.map(f.$, _this).length, data.length);
+
+      t.equal(data.map(f.$, _this)[0], 'thisName');
+      t.equal(data.map(f.$, _this)[5], 'thisName');
+      t.end();
+    });
+
+    t.test('should return a this accessor function', t => {
+      var f = FK('$this');
+
+      var _this = { name: 'thisName' };
+      t.equal(data.map(f.$, _this)[0], _this);
+      t.equal(data.map(f.$, _this)[5], _this);
+      t.end();
+    });
+
+    t.test('should return a this accessor function', t => {
+      var f = F.$this;
+
+      var _this = { name: 'thisName' };
+      t.equal(data.map(f, _this)[0], _this);
+      t.equal(data.map(f, _this)[5], _this);
+      t.end();
+    });
+
+    /* t.test('should work with nested data', t => {
+      var data = { 'date': { 'year': 1990 } };
+      var f = FK('date', FK('year'));
+      t.equal(f.get(data), data.date.year);
+      t.end();
+    }); */
+
+    t.test('should work with nested data, with chained keys', t => {
+      var data = calender[0].event;
+      t.equal(FK('date.year').$(data), data.date.year);
+      t.end();
+    });
+
+    t.test('should work with nested data, with chained keys in array', t => {
+      var data = calender[0].event;
+      t.equal(FK(['date', 'year']).$(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with nested data, with chained keys in array', t => {
+      var data = { date: { year: 1990 } };
+      t.equal(FK('date', 'year').$(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with nested data, with chained keys in array', t => {
+      var data = calender[0].event;
+      t.equal(FK(['date', d => d.year]).$(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with deep nested data', t => {
+      var data = calender[0];
+      t.equal(FK('event.date.year').$(data), 1990);
+      t.end();
+    });
+
+    t.test('should work with very deep nested data', t => {
+      var data = { events: calender };
+      t.equal(FK(['events', 0, 'event.date.year']).$(data), 1990);
+      t.end();
+    });
+
+    t.test('should return undefined with missing key very deep nested data', t => {
+      var data = { events: calender };
+      t.equal(FK(['events', 1, 'event.date.year']).$(data), undefined);
+      t.end();
+    });
+
+    t.test('should return undefined with missing key very deep nested data', t => {
+      var data = { events: [ { event: { date: { year: 1990 } } } ] };
+      t.equal(FK('events', 1, 'event.date.year').$(data), undefined);
+      t.end();
+    });
+
+    t.test('should work with numeric keys', t => {
+      var _secondElement = FK(1);
+      t.equal(_secondElement.$([1978, 0]), 0);
+      t.deepEqual(_secondElement.$(rows), [1978, 0]);
+      t.equal(_secondElement.eq(rows[0])(rows), false);
+      t.equal(_secondElement.eq(rows[1])(rows), true);
+      t.end();
+    });
+
+    t.test('should work with numeric keys, including zero', t => {
+      var _firstElement = FK(0);
+      t.equal(_firstElement.$([1977, 0]), 1977);
+      t.deepEqual(_firstElement.$(rows), [1977, 0]);
+      t.equal(_firstElement.eq(1977)([1977, 0]), true);
+      t.equal(_firstElement.eq(0)([1977, 0]), false);
+      t.end();
+    });
+
+    t.test('should work with numeric keys, undefined with missing key', t => {
+      t.equal(FK(0).$([1978, 0]), 1978);
+      t.equal(FK(1).$([1978, 0]), 0);
+      t.equal(FK(2).$([1978, 0]), undefined);
+      t.equal(FK(2).$(undefined), undefined);
+      t.end();
+    });
+
+    t.test('should work with nested numeric keys, undefined with missing ke', t => {
+      t.equal(FK([1, 1, 0]).$([1978, [1979, [1980, 0]]]), 1980);
+      t.equal(FK([1, 0, 0]).$([1978, [1979, [1980, 0]]]), undefined);
+      t.end();
+    });
+
+    t.test('should work with numeric keys, returns undefined if out of bounds', t => {
+      var _missingElement = FK(rows.length);
+      t.equal(_missingElement.$(rows), undefined);
+      t.end();
+    });
+
+    t.test('should return undefined with missing key', t => {
+      var data = calender[0].event;
+      t.equal(FK('year').$(data), undefined);
+      t.equal(FK('date.day').$(data), undefined);
+      t.equal(FK('year.day').$(data), undefined);
+      t.equal(FK('date.year.value').$(data), undefined);
+      t.end();
+    });
+
+    t.end();
   });
 
-  t.test('#order', (t) => {
-    t.test('should sort by defined order', (t) => {
+  t.test('#orElse', t => {
+    t.test('should return identity function', t => {
+      var or10 = FK().orElse(10);
+      t.equal(or10(5), 5);
+      t.equal(or10(null), 10);
+      t.end();
+    });
+
+    t.test('should return default with missing key', t => {
+      var data = calender[0].event;
+      t.equal(FK('year').orElse(2000)(data), 2000);
+      t.equal(FK('date.day').orElse(5)(data), 5);
+      t.equal(FK('year.day').orElse(6)(data), 6);
+      t.equal(FK('date.year.value').orElse(7)(data), 7);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#compose', t => {
+    t.test('should work with accessor functions', t => {
+      var number = FK('number');
+      var value = number.compose(d => d.location).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.test('should work with FK objects', t => {
+      var location = FK('location');
+      var number = FK('number');
+      var value = number.compose(location).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.test('should work with keys', t => {
+      var number = FK('number');
+      var value = number.compose('location').$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#satisfies', t => {
+    t.test('should work with accessor', t => {
+      var a = [[1, 2]];
+      var b = [[3, 4]];
+      var c = [[3, 5]];
+
+      var f = FK([0, 1]).satisfies(_ => _ % 2 === 0);
+      t.equal(f(a), true);
+      t.equal(f(b), true);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.test('should work with fk', t => {
+      var a = [[1, 2]];
+      var b = [[3, 4]];
+      var c = [[3, 5]];
+
+      var f = FK([0, 1]).satisfies(FK().eq(2));
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.test('should work with ramda', t => {
+      var a = [[1, 2]];
+      var b = [[3, 4]];
+      var c = [[3, 5]];
+
+      var f = FK([0, 1]).satisfies(R.equals(2));
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#and', t => {
+    t.test('should work with accessor function', t => {
+      var a = [[true, 2]];
+      var b = [[false, 4]];
+      var c = [[true, 3]];
+
+      var f = FK([0, 0]).and(_ => _[0][1] % 2 === 0);
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.test('should work with FK', t => {
+      var a = [[true, true]];
+      var b = [[false, true]];
+      var c = [[true, false]];
+
+      var f = FK([0, 0]).and(FK([0, 1]));
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.test('should work with keys', t => {
+      var a = [[true, true]];
+      var b = [[false, true]];
+      var c = [[true, false]];
+
+      var f = FK([0, 0]).and([0, 1]);
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.test('should work with FK', t => {
+      var a = [[true, 2]];
+      var b = [[false, 4]];
+      var c = [[true, 3]];
+
+      var f = FK([0, 0]).and(FK([0, 1]).satisfies(_ => _ % 2 === 0));
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#or', t => {
+    t.test('should work with accessor function', t => {
+      var a = [[true, 2]];
+      var b = [[false, 4]];
+      var c = [[true, 3]];
+
+      var f = FK([0, 0]).or(_ => _[0][1] % 2 === 0);
+      t.equal(f(a), true);
+      t.equal(f(b), true);
+      t.equal(f(c), true);
+      t.end();
+    });
+
+    t.test('should work with FK', t => {
+      var a = [[true, true]];
+      var b = [[false, true]];
+      var c = [[true, false]];
+      var d = [[false, false]];
+
+      var f = FK([0, 0]).or(FK([0, 1]));
+      t.equal(f(a), true);
+      t.equal(f(b), true);
+      t.equal(f(c), true);
+      t.equal(f(d), false);
+      t.end();
+    });
+
+    t.test('should work with keys', t => {
+      var a = [[true, true]];
+      var b = [[false, true]];
+      var c = [[true, false]];
+      var d = [[false, false]];
+
+      var f = FK([0, 0]).or([0, 1]);
+      t.equal(f(a), true);
+      t.equal(f(b), true);
+      t.equal(f(c), true);
+      t.equal(f(d), false);
+      t.end();
+    });
+
+    t.test('should work with FK', t => {
+      var a = [[true, 2]];
+      var b = [[false, 4]];
+      var c = [[true, 3]];
+      var d = [[false, 3]];
+
+      var f = FK([0, 0]).or(FK([0, 1]).satisfies(_ => _ % 2 === 0));
+      t.equal(f(a), true);
+      t.equal(f(b), true);
+      t.equal(f(c), true);
+      t.equal(f(d), false);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#not', t => {
+    t.test('should work with accessor function', t => {
+      var a = [[true, 2]];
+      var b = [[false, 4]];
+      var c = [[true, 3]];
+
+      var f = FK([0, 0]).not();
+      t.equal(f(a), false);
+      t.equal(f(b), true);
+      t.equal(f(c), false);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#is', t => {
+    t.test('should work', t => {
+      var a = [[1, 2]];
+      var b = [[1, 2]];
+
+      var f = FK(0).is(a[0]);
+      t.equal(f(a), true);
+      t.equal(f(b), false);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#eq', t => {
+    t.test('should work', t => {
+      var f = FK('year').eq(1977);
+
+      t.equal(f(data[0]), true);
+      t.equal(f(data[1]), false);
+      t.equal(data.filter(f).length, 1);
+      t.end();
+    });
+
+    t.test('should not interfere', t => {
+      var f = FK('year').eq(1977);
+
+      t.equal(f(data[0]), true);
+      t.equal(f(data[1]), false);
+      t.equal(data.filter(f).length, 1);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#lt', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').lt(newDate(1990));
+
+      t.equal(f(data[0]), true);
+      t.equal(data.filter(f).length, 13);
+      t.end();
+    });
+
+    t.test('should work with $index', t => {
+      var F = FK('$index').lt(10);
+
+      t.equal(data.filter(F).length, 10);
+      t.equal(data.filter(F)[9], data[9]);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#lte', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').lte(newDate(1989));
+
+      t.equal(f(data[0]), true);
+      t.equal(data.filter(f).length, 13);
+      t.end();
+    });
+
+    t.test('should work with $index', t => {
+      var F = FK('$index').lte(10);
+
+      t.equal(data.filter(F).length, 11);
+      t.equal(data.filter(F)[9], data[9]);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#gt', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').gt(newDate(1979));
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 26);
+      t.end();
+    });
+
+    t.test('should work with $index', t => {
+      var F = FK('$index').gt(10);
+
+      t.equal(data.filter(F).length, data.length - 11);
+      t.equal(data.filter(F)[0], data[11]);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#gte', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').gte(newDate('1980'));
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 26);
+      t.end();
+    });
+
+    t.test('should work with $index', t => {
+      var F = FK('$index').gte(10);
+
+      t.equal(data.filter(F).length, data.length - 10);
+      t.equal(data.filter(F)[0], data[10]);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#between', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').between(newDate('1980'), newDate('1990'));
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 9);
+      t.end();
+    });
+
+    t.test('should work with $index', t => {
+      var F = FK('$index').between(10, 20);
+
+      t.equal(data.filter(F).length, 9);
+      t.equal(data.filter(F)[0], data[11]);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#isNil', t => {
+    t.test('should work', t => {
+      var f = FK('year').isNil();
+
+      t.equal(f({ year: 123 }), false);
+      t.equal(f({ }), true);
+      t.equal(f({ year: null }), true);
+      t.equal(data.filter(f).length, 0);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#exists', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').exists();
+
+      t.equal(f({year: 1990, value: 8.89}), true);
+      t.equal(f({value: 8.89}), false);
+      t.equal(f({year: null}), false);
+      t.equal(f({}), false);
+      t.equal(data.filter(f).length, 29);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#type', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').type();
+
+      t.equal(f({year: 1990, value: 8.89}), 'Number');
+      t.equal(f({year: '1990', value: 8.89}), 'String');
+      t.equal(data.filter(f).length, 29);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#typeof', t => {
+    t.test('should work with key', t => {
+      var f = FK('year').typeof('Number');
+
+      t.equal(f({year: 1990, value: 8.89}), true);
+      t.equal(f({year: '1990', value: 8.89}), false);
+      t.equal(data.filter(f).length, 29);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#match', t => {
+    t.test('should work with regex', t => {
+      var f = FK('year').match(/19[89]./);
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 20);  // TODO: check
+      t.end();
+    });
+
+    t.test('should work with string', t => {
+      var f = FK('year').match(new RegExp('19[89].'));  // todo: fix
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 20);  // TODO: check
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#both', t => {
+    t.test('should work with accessor functions', t => {
+      var year = FK('year');
+      var f = year.both(a => a > newDate(1979), b => b < newDate(1990));
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 10);
+
+      var mean = d3_mean(data.filter(f), d => d.value);
+      t.equal(mean, 20.986);
+      t.end();
+    });
+
+    t.test('should work with identity function', t => {
+      var year = FK('year');
+      var f = year.both(FK().gt(newDate(1979)), FK().lt(newDate(1990)));
+
+      t.equal(f(data[0]), false);
+      t.equal(data.filter(f).length, 10);
+
+      var mean = d3_mean(data.filter(f), d => d.value);
+      t.equal(mean, 20.986);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#either', t => {
+    t.test('should work with accessor functions', t => {
+      var year = FK('year');
+      var f = year.either(a => a > newDate(1989), b => b < newDate(1980)); // gt(newDate(1989)).or(_F().lt(newDate(1980)));
+
+      t.equal(f(data[0]), true);
+      t.equal(data.filter(f).length, 19);
+
+      var mean = d3_mean(data.filter(f), d => d.value);
+      t.equal(mean, 3.845789473684211);
+      t.end();
+    });
+
+    t.test('should work with identity function', t => {
+      var year = FK('year');
+      var f = year.either(FK().gt(newDate(1989)), FK().lt(newDate(1980))); // gt(newDate(1989)).or(_F().lt(newDate(1980)));
+
+      t.equal(f(data[0]), true);
+      t.equal(data.filter(f).length, 19);
+
+      var mean = d3_mean(data.filter(f), d => d.value);
+      t.equal(mean, 3.845789473684211);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('#order', t => {
+    t.test('should sort by defined order', t => {
       var value = FK('value');
 
       var d = data.slice().sort(value.order((a, b) => a < b));
@@ -986,10 +1095,12 @@ test('FK', (t) => {
       t.equal(d.pop().value, 43.7);
       t.end();
     });
+
+    t.end();
   });
 
-  t.test('#asc', (t) => {
-    t.test('should sort ascending', (t) => {
+  t.test('#asc', t => {
+    t.test('should sort ascending', t => {
       var valueKey = FK('value');
       var value = valueKey.$;
 
@@ -998,10 +1109,12 @@ test('FK', (t) => {
       t.equal(value(d.pop()), 43.7);
       t.end();
     });
+
+    t.end();
   });
 
-  t.test('#desc', (t) => {
-    t.test('should sort ascending', (t) => {
+  t.test('#desc', t => {
+    t.test('should sort ascending', t => {
       var valueKey = FK('value');
       var value = valueKey.$;
 
@@ -1010,5 +1123,215 @@ test('FK', (t) => {
       t.equal(value(d.shift()), 43.7);
       t.end();
     });
+
+    t.end();
   });
+});
+
+test('fantasyland Spec', t => {
+  t.test('implement the Functor specification, #of', t => {
+    t.test('should implement of method', t => {
+      t.equal(typeof FK().of, 'function', 'A value which has a Applicative must provide a of method.');
+      t.equal(typeof FK.of, 'function', 'A value which has a Applicative must provide a of method.');
+      t.end();
+    });
+
+    t.test('constructs a getter that always produces the same value', t => {
+      var of = FK.of(5);
+      var value = of.$({});
+
+      t.equal(value, 5);
+      t.end();
+    });
+
+    t.test('can store accessor functions', t => {
+      var id = FK.of(R.identity);
+      t.equal(id.$()(123), 123);
+      t.end();
+    });
+    t.end();
+  });
+
+  t.test('implement the Functor specification, #map', t => {
+    t.test('should implement map method', t => {
+      var f = FK();
+      t.equal(typeof f.map, 'function', 'A value which has a Functor must provide a map method.');
+      t.end();
+    });
+
+    t.test('should work with accessor functions', t => {
+      var location = FK('location');
+      var value = location.map(d => d.number).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    test('should work with FK objects', t => {  // constructs a new getter composed of the existing getter and the function provided to map
+      var location = FK('location');
+      var number = FK('number');
+      var value = location.map(number).$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    test('should work with keys', t => {  // constructs a new getter composed of the existing getter and the function provided to map
+      var location = FK('location');
+      var value = location.map('number').$(place);
+
+      t.equal(value, 1600);
+      t.end();
+    });
+
+    t.test('should work with deep nested data', t => {
+      var data = calender[0];
+      var f = FK('event').map('date').map('year');
+      t.equal(f.$(data), 1990);
+      t.end();
+    });
+
+    t.test('identity', t => {
+      var data = calender[0];
+      var f = FK('event.date.year');
+      t.equal(f.$(data), 1990);
+      t.equal(f.map(a => a).$(data[0]), f.$(data[0]));
+      t.end();
+    });
+
+    t.test('composition', t => {
+      var data = calender[0];
+      var g = d => 1;
+      var f = d => 2;
+      var F = FK('event');
+      var f1 = F.map(g).map(f);
+      var f2 = F.map(x => f(g(x)));
+
+      // t.deepEqual(f1.$(data), 1990);
+      t.deepEqual(f1.$(data), f2.$(data));
+      t.end();
+    });
+    t.end();
+  });
+
+  t.test('implement the Apply specification, #ap', t => {
+    t.test('should implement ap method', t => {
+      var a = FK();
+      t.equal(typeof a.ap, 'function', 'A value which has a Apply must provide a ap method.');
+      t.end();
+    });
+
+    test('can be used for piping a value through two separate FK functions', t => {
+      var fn = FK('foo').map(R.add).ap(FK('bar'));
+      var value = fn.$({
+        foo: 1,
+        bar: 2
+      });
+
+      t.equal(value, 3);
+      t.end();
+    });
+
+    t.test('identity', t => {
+      var data = { year: 1990 };
+      var a = FK('year');
+
+      t.equal(FK().of(x => x).ap(a).$(data), 1990);
+      t.end();
+    });
+
+    t.test('homomorphism', t => {
+      var f = d => d.year;
+      var x = { year: 1990 };
+      var a = FK();
+
+      t.equal(a.of(f(x)).$(), 1990);
+      t.equal(a.of(f).ap(a.of(x)).$(), 1990);
+      t.end();
+    });
+
+    /* t.test('interchange', t => {
+      var f = d => d.year;
+      var y = { year: 1990 };
+      var a = FK();
+      var u = FK('year');
+
+      t.equal(u.ap(a.of(f)), 1990);
+      t.end();
+    }); */
+
+    t.end();
+  });
+
+  t.test('implement the Chain specification, #chain', t => {
+    t.test('should implement chain method', t => {
+      var m = FK();
+      t.equal(typeof m.chain, 'function', 'A value which has a Chain must provide a chain method.');
+      t.end();
+    });
+
+    test('could be used to dynamically construct a getter function based on some other value of the received object', t => {
+      var fn = FK('foo').chain(x => FK(x));
+
+      t.equal(fn.$({
+        foo: 'bar',
+        bar: 2,
+        baz: 3
+      }), 2);
+
+      t.equal(fn.$({
+        foo: 'baz',
+        bar: 2,
+        baz: 3
+      }), 3);
+
+      t.end();
+    });
+
+    t.test('should implement chain method', t => {
+      var m = FK().chain(s => FK.of(s.length + 3));
+      t.equal(m.$('hello'), 8);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test('implement the Extend specification, #extend', t => {
+    t.test('should implement extend method', t => {
+      var a = FK();
+      t.equal(typeof a.extend, 'function', 'A value which has a Extend must provide a extend method.');
+      t.end();
+    });
+
+    t.test('extend', t => {
+      var number = FK('location.number');
+      var numberIs = number.extend(x => x.is);
+      var isNumber1600 = numberIs.$(1600);
+      var isNumber1000 = numberIs.$(1000);
+
+      t.equal(isNumber1600(place), true);
+      t.equal(isNumber1000(place), false);
+      t.end();
+    });
+    t.end();
+  });
+
+  t.test('implement the Comonad specification, #extract', t => {
+    t.test('should implement extract method', t => {
+      var a = FK();
+      t.equal(typeof a.extend, 'function', 'A value which has a Comonad must provide an extract method.');
+      t.end();
+    });
+
+    t.test('extend', t => {
+      var number = FK('location.number').extract();
+
+      t.equal(number(place), 1600);
+      t.end();
+    });
+    t.end();
+  });
+
+  t.end();
 });

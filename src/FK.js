@@ -1,9 +1,9 @@
 // these are exported
 import $identity from 'ramda/src/internal/_identity';
 
-import and from 'ramda/src/both';
-import or from 'ramda/src/either';
-import not from 'ramda/src/complement';
+import Rboth from 'ramda/src/both';
+import Reither from 'ramda/src/either';
+import Rcomplement from 'ramda/src/complement';
 
 // these are internal
 import RisNil from 'ramda/src/isNil';
@@ -55,40 +55,46 @@ function FK (...args) {
   const $ = arguments.length > 1 ? prop(args) : prop(args[0]);
 
   // utilities
-  const $compose = (...f) => Rcompose($, ...f);
-  const $pipe = (...f) => Rpipe($, ...f);
-  const $wrap = f => (...v) => $pipe(f(...v));
-  const $wrap0 = (...f) => () => $pipe(...f);
+  const $pipe = f => v => function () {
+    return f(v).call(this, $.apply(this, arguments));
+  };
 
   // fantasyland
-  // const of = FK.of;  // Applicative
-  const map = fn => FK($pipe(prop(fn)));
-  const ap = fk => FK(x => $(x)(fk.value(x)));    // Apply
-  const chain = fn => FK(x => fn($(x)).value(x)); // Chain
+  const of = FK.of;                               // Applicative
+  const chain = f => FK(x => f($(x)).value(x));   // Chain
+  const map = f => chain(a => FK.of(prop(f)(a))); // FK($pipe(prop(fn)));          // Functor
+  const ap = a => chain(f => a.map(f));           // fk => FK(x => $(x)(fk.value(x)));    // Apply
+  const extend = f => FK(f(FK($)));               // Extend
   const extract = () => $;                        // Comonad
-  // const extend = fn => FK(fn(fk));
+
+  // const traverse = (f, p) => f($).map(FK.of);
+  // const sequence = (p) => traverse($identity, p);  // () => f($).map(FK.of)
 
   // composition
-  const compose = fn => FK($compose(prop(fn)));
+  const compose = fn => FK(Rcompose($, prop(fn)));
 
   // values
-  const orElse = $wrap(RdefaultTo);
+  const orElse = v => Rpipe($, RdefaultTo(v));
 
-  const satisfies = $pipe;
-  const eq = $wrap(Requals);
-  const is = $wrap(Ridentical);
-  const match = $wrap(Rtest);  // rename test?
+  const satisfies = f => Rpipe($, f);
+  const eq = v => Rpipe($, Requals(v));
+  const is = v => Rpipe($, Ridentical(v));
+  const match = v => Rpipe($, Rtest(v));  // rename test?
 
-  const gte = $wrap(Rlte); // lte = flip(gte)
-  const lte = $wrap(Rgte);  // gte = flip(lte)
-  const gt = $wrap(Rlt);  // lt = flip(gt)
-  const lt = $wrap(Rgt);  // gt = flip(lt)
+  const and = (...f) => Rboth($, prop(f));
+  const or = (...f) => Reither($, prop(f));
+  const not = () => Rcomplement($);
 
-  const type = $wrap0(Rtype);
-  const isTypeof = _ => $pipe(Rtype, Requals(_));
+  const gte = $pipe(Rlte); // lte = flip(gte)
+  const lte = v => Rpipe($, Rgte(v));  // gte = flip(lte)
+  const gt = v => Rpipe($, Rlt(v));  // lt = flip(gt)
+  const lt = v => Rpipe($, Rgt(v));  // gt = flip(lt)
 
-  const isNil = $wrap0(RisNil);
-  const exists = $wrap0(RisNil, Rnot);
+  const type = () => Rpipe($, Rtype);
+  const isTypeof = v => Rpipe($, Rtype, Requals(v));
+
+  const isNil = () => Rpipe($, RisNil);
+  const exists = () => Rpipe($, RisNil, Rnot);
 
   // Sorting
   const order = (_) => Rcomparator(RuseWith(_, [$, $]));
@@ -96,8 +102,8 @@ function FK (...args) {
   const desc = () => order(Rgt);
 
   // comparator
-  const both = (a, b) => and($pipe(a), $pipe(b));
-  const either = (a, b) => or($pipe(a), $pipe(b));
+  const both = (a, b) => Rboth(satisfies(a), satisfies(b));
+  const either = (a, b) => Reither(satisfies(a), satisfies(b));
   const between = (a, b) => both(Rlt(a), Rgt(b));
 
   return Object.freeze({
@@ -106,12 +112,12 @@ function FK (...args) {
 
     // fantasyland?
     value: $,
-    of: FK.of,
+    of: of,
     map,
     ap,
     chain,
+    extend,
     extract,
-    // extend,
 
     // composition
     andThen: map,
@@ -124,6 +130,10 @@ function FK (...args) {
     eq,
     is,
     match,
+
+    and,
+    or,
+    not,
 
     gte,
     lte,
@@ -146,10 +156,18 @@ function FK (...args) {
   });
 }
 
+FK.ask = FK();
 FK.of = x => FK(_ => x);
-FK.and = and;
-FK.or = or;
-FK.not = not;
+FK.and = Rboth;
+FK.or = Reither;
+FK.not = Rcomplement;
+
+export function unsafeKeys (...args) {
+  var fk = FK.apply(null, args);
+  return Object.assign(fk.$, fk);
+}
+
+Object.assign(unsafeKeys, FK);
 
 export default FK;
 
